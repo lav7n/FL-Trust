@@ -4,11 +4,6 @@ import numpy as np
 import os
 import struct
 
-def load_npy_data(client_dir):
-    x_data = np.load(os.path.join(client_dir, 'x_data.npy'))
-    y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
-    return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)
-
 class RootClientDataLoader:
     def __init__(self, batch_size=64):
         root_dir = 'dataset/root_client'  # Directory where root client's data is stored
@@ -52,39 +47,27 @@ class ClientDataLoader:
     def get_malicious_clients(self):
         return list(self.malicious_clients)
 
+class TestDataLoader:
+    def __init__(self, batch_size=64):
+        self.batch_size = batch_size
+        self.test_loader = None
+        self._load_test_data()
+
+    def _load_test_data(self):
+        test_dir = 'dataset/test'
+        x_test = np.load(os.path.join(test_dir, 'x_test.npy'))
+        y_test = np.load(os.path.join(test_dir, 'y_test.npy'))
+
+        x_test_tensor = torch.tensor(x_test, dtype=torch.float32)
+        y_test_tensor = torch.tensor(y_test, dtype=torch.long)
+
+        self.test_loader = DataLoader(TensorDataset(x_test_tensor, y_test_tensor), batch_size=self.batch_size, shuffle=False)
+
+    def get_test_loader(self):
+        return self.test_loader
 
 
-def load_mnist_images(filename):
-    """Load MNIST images from an idx3-ubyte file."""
-    with open(filename, 'rb') as f:
-        # Read the magic number and dimensions of the images
-        magic, num_images, rows, cols = struct.unpack(">IIII", f.read(16))
-        # Read the image data
-        images = np.fromfile(f, dtype=np.uint8).reshape(num_images, 1, rows, cols)
-        # Normalize the pixel values to [0, 1]
-        return images / 255.0
-
-def load_mnist_labels(filename):
-    """Load MNIST labels from an idx1-ubyte file."""
-    with open(filename, 'rb') as f:
-        # Read the magic number and number of labels
-        magic, num_labels = struct.unpack(">II", f.read(8))
-        # Read the label data
-        labels = np.fromfile(f, dtype=np.uint8)
-        return labels
-
-def load_test_data():
-    """Load the MNIST test data from idx3-ubyte and idx1-ubyte files."""
-    # Load images and labels from the files
-    images = load_mnist_images('mnist/t10k-images.idx3-ubyte')
-    labels = load_mnist_labels('mnist/t10k-labels.idx1-ubyte')
-    
-    # Convert them to PyTorch tensors
-    x_test_tensor = torch.tensor(images, dtype=torch.float32)
-    y_test_tensor = torch.tensor(labels, dtype=torch.long)
-
-    # Create a TensorDataset and DataLoader
-    test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-    
-    return test_loader
+def load_npy_data(client_dir):
+    x_data = np.load(os.path.join(client_dir, 'x_data.npy'))
+    y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
+    return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)

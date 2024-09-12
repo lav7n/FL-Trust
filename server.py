@@ -3,7 +3,7 @@ import torch
 import copy
 
 class Server:
-    def __init__(self, model, criterion, num_clients, alpha=0.01):
+    def __init__(self, model, criterion, num_clients, alpha=1):
         self.model = model
         self.criterion = criterion
         self.num_clients = num_clients
