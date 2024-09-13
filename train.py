@@ -10,9 +10,13 @@ from model import LeNet
 import numpy as np
 
 model = LeNet()
+print("Model reset!")
 criterion = nn.CrossEntropyLoss()
 
-client_data_loader = ClientDataLoader(num_clients=30, num_malicious=3, batch_size=64, attack_type='label_flipping')
+test = TestDataLoader(batch_size=64)
+test_loader = test.get_test_loader()
+
+client_data_loader = ClientDataLoader(num_clients=10, num_malicious=0, batch_size=64, attack_type='label_flipping')
 client_datasets = client_data_loader.get_client_datasets()
 
 clients = [Client(model=model, criterion=criterion, client_loader=train_loader, num_epochs=2)
@@ -20,16 +24,14 @@ clients = [Client(model=model, criterion=criterion, client_loader=train_loader, 
 
 root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=2)
-server = Server(model, criterion, num_clients=30, alpha=1)
+server = Server(model, criterion, num_clients=10, alpha=1)
 
-test = TestDataLoader(batch_size=64)
-test_loader = test.get_test_loader()
 
 accuracies_with_fltrust, root_client_accuracies = server.Train(
     clients, test_loader,
      num_rounds=10,
       num_epochs=2, 
-      FLTrust=False, 
+      FLTrust=True, 
       root_client=root_client,
        root_client_only=False
 )

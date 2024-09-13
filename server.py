@@ -119,6 +119,8 @@ class Server:
                 # Test client accuracy after local Training
                 client_accuracy = self.test_client_locally(client, client.train_loader)
                 print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
+                client_accuracy2 = self.test_client_locally(client, test_loader)
+                print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
             # FLTRUST
             if FLTrust and root_client:
@@ -126,6 +128,9 @@ class Server:
                 root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
                 root_client_accuracies.append(root_client_accuracy)
                 print(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
+
+                root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
+                print(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
 
