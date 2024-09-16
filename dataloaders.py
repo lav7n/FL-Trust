@@ -71,3 +71,43 @@ def load_npy_data(client_dir):
     x_data = np.load(os.path.join(client_dir, 'x_data.npy'))
     y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
     return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)
+
+
+
+# Plotting and saving the graph
+def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False):
+    # Ensure results directory exists
+    os.makedirs("results", exist_ok=True)
+    plt.figure(figsize=(10, 6))
+
+    # Plot global model accuracies (FLTrust or FedAvg)
+    plt.plot(range(1, len(accuracies) + 1), accuracies, label='Global Model Accuracies (FLTrust)' if fltrust_enabled else 'FedAvg Accuracies', marker='o')
+
+    # If FLTrust is enabled, also plot the root client accuracies
+    if fltrust_enabled and root_accuracies:
+        plt.plot(range(1, len(root_accuracies) + 1), root_accuracies, label='Root Client Accuracies', marker='x')
+
+    plt.xlabel('Round')
+    plt.ylabel('Accuracy (%)')
+    plt.title('Global Model Accuracy' + (' with FLTrust' if fltrust_enabled else ' with FedAvg'))
+
+    info_text = f'Num Clients: {args.num_clients}\nNum Rounds: {args.num_rounds}\nNum Malicious Clients: {args.num_malicious}'
+    plt.text(0.05, 0.95, info_text, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
+
+    plt.legend()
+
+    # Create a timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    # Name format: Run_{FLTrust/FedAVG}_{NumClients_NumRounds_Malicious}_{Timestamp}.png
+    run_type = 'FLTrust' if fltrust_enabled else 'FedAvg'
+    file_name = f"Run_{run_type}_{args.num_clients}_{args.num_rounds}_{args.num_malicious}_{timestamp}.png"
+
+    # Save the plot in the 'results' folder
+    plt.savefig(os.path.join('results', file_name))
+    print(f"Graph saved as {file_name}")
+
+    # Show the plot
+    plt.show()
+
+# Call the save function after training
