@@ -2,9 +2,13 @@ import numpy as np
 import torch
 import copy
 
+# Detect if GPU is available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class Server:
     def __init__(self, model, criterion, num_clients, alpha=1):
-        self.model = model
+        # Move the model to the appropriate device (CPU or GPU)
+        self.model = model.to(device)
         self.criterion = criterion
         self.num_clients = num_clients
         self.alpha = alpha  # Trust-weighting factor for FLTrust
@@ -75,7 +79,7 @@ class Server:
             accuracies.append(initial_accuracy)
             print(f'Initial Global Model Accuracy: {initial_accuracy:.2f}%')
 
-        # test root client before Training
+        # Test root client before Training
         if FLTrust and root_client and test_global_model:
             root_client_initial_accuracy = self.test_client_locally(root_client, root_client.train_loader)
             root_client_accuracies.append(root_client_initial_accuracy)
@@ -149,16 +153,18 @@ class Server:
 
         # Stack all model parameters along the first dimension and compute the mean
         for key in avg_weights.keys():
-            avg_weights[key] = torch.stack([client_models[i][key].float() for i in range(len(client_models))], dim=0).mean(dim=0)
+            avg_weights[key] = torch.stack([client_models[i][key].float().to(device) for i in range(len(client_models))], dim=0).mean(dim=0)
         
         # Load the averaged weights into the model
         self.model.load_state_dict(avg_weights)
+
     def test_global(self, data_loader):
         """Evaluate global model performance on test data."""
         self.model.eval()
         correct = 0
         with torch.no_grad():
             for data, target in data_loader:
+                data, target = data.to(device), target.to(device)
                 data = data.view(data.size(0), 1, 28, 28)
                 output = self.model(data)
                 pred = output.argmax(dim=1, keepdim=True)
@@ -171,6 +177,7 @@ class Server:
         correct = 0
         with torch.no_grad():
             for data, target in data_loader:
+                data, target = data.to(device), target.to(device)
                 data = data.view(data.size(0), 1, 28, 28)
                 output = client.model(data)
                 pred = output.argmax(dim=1, keepdim=True)
