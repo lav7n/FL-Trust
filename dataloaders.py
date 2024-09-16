@@ -78,9 +78,11 @@ def load_npy_data(client_dir):
 
 
 # Plotting and saving the graph
-def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False):
-    # Ensure results directory exists
-    os.makedirs("results", exist_ok=True)
+import matplotlib.pyplot as plt
+import os
+from datetime import datetime
+
+def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False, num_clients=15, num_rounds=20, num_malicious=10):
     plt.figure(figsize=(10, 6))
 
     # Plot global model accuracies (FLTrust or FedAvg)
@@ -90,13 +92,16 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False):
     if fltrust_enabled and root_accuracies:
         plt.plot(range(1, len(root_accuracies) + 1), root_accuracies, label='Root Client Accuracies', marker='x')
 
+    # Add labels and title
     plt.xlabel('Round')
     plt.ylabel('Accuracy (%)')
     plt.title('Global Model Accuracy' + (' with FLTrust' if fltrust_enabled else ' with FedAvg'))
 
-    info_text = f'Num Clients: {args.num_clients}\nNum Rounds: {args.num_rounds}\nNum Malicious Clients: {args.num_malicious}'
+    # Add text on the graph: num clients, num rounds, num malicious
+    info_text = f'Num Clients: {num_clients}\nNum Rounds: {num_rounds}\nNum Malicious Clients: {num_malicious}'
     plt.text(0.05, 0.95, info_text, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
 
+    # Add legend
     plt.legend()
 
     # Create a timestamp
@@ -104,7 +109,10 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False):
 
     # Name format: Run_{FLTrust/FedAVG}_{NumClients_NumRounds_Malicious}_{Timestamp}.png
     run_type = 'FLTrust' if fltrust_enabled else 'FedAvg'
-    file_name = f"Run_{run_type}_{args.num_clients}_{args.num_rounds}_{args.num_malicious}_{timestamp}.png"
+    file_name = f"Run_{run_type}_{num_clients}_{num_rounds}_{num_malicious}_{timestamp}.png"
+
+    # Ensure 'results' directory exists
+    os.makedirs('results', exist_ok=True)
 
     # Save the plot in the 'results' folder
     plt.savefig(os.path.join('results', file_name))
@@ -112,5 +120,6 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False):
 
     # Show the plot
     plt.show()
+
 
 # Call the save function after training

@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import os
 from datetime import datetime
 
-# Detect if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
 
@@ -26,31 +25,25 @@ parser.add_argument('--FLTrust', type=bool, default=True, help='Use FLTrust or n
 
 args = parser.parse_args()
 
-# Initialize the model and move it to the appropriate device
+
 model = LeNet().to(device)
 print("Model reset!")
 criterion = nn.CrossEntropyLoss()
 
-# Load the test data
+
 test = TestDataLoader(batch_size=64)
 test_loader = test.get_test_loader()
 
-# Load client data
 client_data_loader = ClientDataLoader(num_clients=args.num_clients, num_malicious=args.num_malicious, batch_size=64, attack_type='label_flipping')
 client_datasets = client_data_loader.get_client_datasets()
 
-# Create clients and move their models to the appropriate device
 clients = [Client(model=model, criterion=criterion, client_loader=train_loader, num_epochs=args.num_epochs)
            for train_loader in client_datasets]
 
-# Create the root client and move it to the appropriate device
 root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
-
-# Initialize the server
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 
-# Start training
 if args.FLTrust:
     accuracies_with_fltrust, root_client_accuracies = server.Train(
         clients, test_loader,
@@ -75,5 +68,11 @@ print("Global Model Accuracies across rounds with FLTrust:", accuracies_with_flt
 if root_client_accuracies:
     print("Root Client Accuracies across rounds:", root_client_accuracies)
 
-
-PlotResult(accuracies_with_fltrust, root_client_accuracies, fltrust_enabled=args.FLTrust)
+PlotResult(
+    accuracies_with_fltrust,
+    root_accuracies=root_client_accuracies,
+    fltrust_enabled=args.FLTrust,
+    num_clients=args.num_clients,
+    num_rounds=args.num_rounds,
+    num_malicious=args.num_malicious
+)
