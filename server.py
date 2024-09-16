@@ -144,13 +144,15 @@ class Server:
 
     def FedAvg(self, client_models):
         """Average the model weights from clients for FedAvg aggregation."""
-        avg_weights = copy.deepcopy(client_models[0])
-        for key in avg_weights.keys():
-            for i in range(1, len(client_models)):
-                avg_weights[key] += client_models[i][key]
-            avg_weights[key] /= len(client_models)
-        self.model.load_state_dict(avg_weights)
+        # Assume client_models already contains the state dictionaries (OrderedDicts)
+        avg_weights = client_models[0]  # Directly use the first client's state_dict
 
+        # Stack all model parameters along the first dimension and compute the mean
+        for key in avg_weights.keys():
+            avg_weights[key] = torch.stack([client_models[i][key].float() for i in range(len(client_models))], dim=0).mean(dim=0)
+        
+        # Load the averaged weights into the model
+        self.model.load_state_dict(avg_weights)
     def test_global(self, data_loader):
         """Evaluate global model performance on test data."""
         self.model.eval()

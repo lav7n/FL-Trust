@@ -6,7 +6,7 @@ import struct
 
 class RootClientDataLoader:
     def __init__(self, batch_size=64):
-        root_dir = 'dataset/root_client'  # Directory where root client's data is stored
+        root_dir = 'dataset/root'  # Directory where root client's data is stored
         x_root, y_root = load_npy_data(root_dir)
         self.train_loader = DataLoader(TensorDataset(x_root, y_root), batch_size=batch_size, shuffle=True)
 
@@ -27,7 +27,7 @@ class ClientDataLoader:
 
     def _load_client_data(self):
         for client_id in range(self.num_clients):
-            client_dir = f'dataset/clients/client_{client_id + 1}'
+            client_dir = f'dataset/client_{client_id + 1}'
             x_data, y_data = load_npy_data(client_dir)
             
             # Apply attacks to malicious clients
