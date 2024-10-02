@@ -21,7 +21,7 @@ parser.add_argument('--num_clients', type=int, default=30, help='Number of clien
 parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
-parser.add_argument('--FLTrust', type=bool, default=False, help='Use FLTrust or not')
+parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=0.1, help='Standard deviation of noise for Gaussian noise attack')
 
@@ -50,7 +50,8 @@ root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 
-if args.FLTrust == True:
+print("FLTrust: ", args.FLTrust)
+if args.FLTrust:
     print("FLTrust Enabled!")
     accuracies_with_fltrust, root_client_accuracies, A, B = server.Train(
         clients, test_loader,
