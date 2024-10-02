@@ -73,6 +73,10 @@ class Server:
         accuracies = []
         root_client_accuracies = []
 
+        # Initialize matrices to store accuracies
+        root_on_client_matrix = np.zeros((num_rounds, self.num_clients))
+        client_on_root_matrix = np.zeros((num_rounds, self.num_clients))
+
         # Test initial global model  
         if test_global_model:
             initial_accuracy = self.test_global(test_loader)
@@ -126,6 +130,16 @@ class Server:
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
+                # Test the root client on the current client's data
+                root_on_client_accuracy = self.test_client_locally(root_client, client.train_loader)
+                print(f'\n Root Client Accuracy on Client {client_id + 1}: {root_on_client_accuracy:.2f}%')
+                root_on_client_matrix[rnd, client_id] = root_on_client_accuracy
+
+                # Test the current client on the root client's data
+                client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
+                print(f'Client {client_id + 1} Accuracy on Root Client: {client_on_root_accuracy:.2f}% \n\n')
+                client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
+
             # FLTRUST
             if FLTrust and root_client:
                 self.FLTrust(root_client, client_models)
@@ -144,7 +158,8 @@ class Server:
                 accuracies.append(global_accuracy)
                 print(f'Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%')
 
-        return accuracies, root_client_accuracies
+        return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix
+
 
     def FedAvg(self, client_models):
         """Average the model weights from clients for FedAvg aggregation."""

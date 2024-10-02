@@ -15,7 +15,7 @@ class Client:
         self.num_epochs = num_epochs
 
     def train(self, num_epochs=2):
-        optimizer = optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9)
+        optimizer = optim.SGD(self.model.parameters(), lr=0.0001, momentum=0.9)
         self.model.train()
 
         for _ in range(num_epochs):
