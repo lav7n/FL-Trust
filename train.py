@@ -19,9 +19,11 @@ print(f"Device: {device}")
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=30, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=5, help='Number of training rounds')
-parser.add_argument('--num_malicious', type=int, default=0, help='Number of malicious clients')
+parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
-parser.add_argument('--FLTrust', type=bool, default=True, help='Use FLTrust or not')
+parser.add_argument('--FLTrust', type=bool, default=False, help='Use FLTrust or not')
+parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
+parser.add_argument('--noise_stddev', type=float, default=0.1, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
 
@@ -34,7 +36,11 @@ criterion = nn.CrossEntropyLoss()
 test = TestDataLoader(batch_size=64)
 test_loader = test.get_test_loader()
 
-client_data_loader = ClientDataLoader(num_clients=args.num_clients, num_malicious=args.num_malicious, batch_size=64, attack_type='label_flipping')
+client_data_loader = ClientDataLoader(num_clients=args.num_clients,
+                                        num_malicious=args.num_malicious, 
+                                        batch_size=64, 
+                                        attack_type=args.attack_type, 
+                                        noise_stddev=args.noise_stddev)
 client_datasets = client_data_loader.get_client_datasets()
 
 clients = [Client(model=model, criterion=criterion, client_loader=train_loader, num_epochs=args.num_epochs)
@@ -68,29 +74,31 @@ print("Global Model Accuracies across rounds with FLTrust:", accuracies_with_flt
 if root_client_accuracies:
     print("Root Client Accuracies across rounds:", root_client_accuracies)
 
-# PlotResult(
-#     accuracies_with_fltrust,
-#     root_accuracies=root_client_accuracies,
-#     fltrust_enabled=args.FLTrust,
-#     num_clients=args.num_clients,
-#     num_rounds=args.num_rounds,
-#     num_malicious=args.num_malicious
-# )
+PlotResult(
+    accuracies_with_fltrust,
+    root_accuracies=root_client_accuracies,
+    fltrust_enabled=args.FLTrust,
+    num_clients=args.num_clients,
+    num_rounds=args.num_rounds,
+    num_malicious=args.num_malicious
+)
 
-def Cosine(w1, w2):
-    # Flatten both weight arrays
-    w1_flat = w1.ravel()
-    w2_flat = w2.ravel()
+if args.FLTrust:
 
-    # Compute the dot product and norms
-    dot_product = np.dot(w1_flat, w2_flat)
-    norm1 = np.linalg.norm(w1_flat)
-    norm2 = np.linalg.norm(w2_flat)
+    def Cosine(w1, w2):
+        # Flatten both weight arrays
+        w1_flat = w1.ravel()
+        w2_flat = w2.ravel()
 
-    return dot_product / (norm1 * norm2)
+        # Compute the dot product and norms
+        dot_product = np.dot(w1_flat, w2_flat)
+        norm1 = np.linalg.norm(w1_flat)
+        norm2 = np.linalg.norm(w2_flat)
+
+        return dot_product / (norm1 * norm2)
 
 
-sim = Cosine(A, B)
-print("Root tested on client", A)
-print("Client tested on root", B)
-print("Cosine Similarity between A and B:", sim)
+    sim = Cosine(A, B)
+    print("Root tested on client", A)
+    print("Client tested on root", B)
+    print("Cosine Similarity between A and B:", sim)

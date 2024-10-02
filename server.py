@@ -130,15 +130,17 @@ class Server:
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
-                # Test the root client on the current client's data
-                root_on_client_accuracy = self.test_client_locally(root_client, client.train_loader)
-                print(f'\n Root Client Accuracy on Client {client_id + 1}: {root_on_client_accuracy:.2f}%')
-                root_on_client_matrix[rnd, client_id] = root_on_client_accuracy
+                if FLTrust and root_client:
 
-                # Test the current client on the root client's data
-                client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
-                print(f'Client {client_id + 1} Accuracy on Root Client: {client_on_root_accuracy:.2f}% \n\n')
-                client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
+                    # Test the root client on the current client's data
+                    root_on_client_accuracy = self.test_client_locally(root_client, client.train_loader)
+                    print(f'\n Root Client Accuracy on Client {client_id + 1}: {root_on_client_accuracy:.2f}%')
+                    root_on_client_matrix[rnd, client_id] = root_on_client_accuracy
+
+                    # Test the current client on the root client's data
+                    client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
+                    print(f'Client {client_id + 1} Accuracy on Root Client: {client_on_root_accuracy:.2f}% \n\n')
+                    client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
 
             # FLTRUST
             if FLTrust and root_client:
