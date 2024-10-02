@@ -50,7 +50,7 @@ root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 
-if args.FLTrust:
+if args.FLTrust == True:
     print("FLTrust Enabled!")
     accuracies_with_fltrust, root_client_accuracies, A, B = server.Train(
         clients, test_loader,
