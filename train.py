@@ -18,11 +18,11 @@ print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=30, help='Number of clients')
-parser.add_argument('--num_rounds', type=int, default=5, help='Number of training rounds')
+parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', type=bool, default=False, help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
+parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=0.1, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
@@ -51,20 +51,22 @@ root_client = Client(model=model, criterion=criterion, client_loader=root_loader
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 
 if args.FLTrust:
+    print("FLTrust Enabled!")
     accuracies_with_fltrust, root_client_accuracies, A, B = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
-        FLTrust=args.FLTrust,
+        FLTrust=True,
         root_client=root_client,
         root_client_only=False
     )
 else:
+    print("FLTrust Disabled!")
     accuracies_with_fltrust = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
-        FLTrust=args.FLTrust,
+        FLTrust=False,
         root_client=None,
         root_client_only=False
     )
