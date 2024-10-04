@@ -44,7 +44,7 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
 client_datasets = client_data_loader.get_client_datasets()
 
 default_lr = 0.0001  # Default learning rate for non-malicious clients
-malicious_lr = 0.9 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
+malicious_lr = 0.1 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
 clients = [
     Client(
         model=model,
@@ -120,3 +120,4 @@ if args.FLTrust:
     # Example usage
     C = CosineElementWise(A, B)
     print("Element-wise Cosine Similarity Matrix C:\n", C)
+    print(A,B)
