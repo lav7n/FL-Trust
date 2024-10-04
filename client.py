@@ -7,15 +7,16 @@ from torch.utils.data import DataLoader
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Client:
-    def __init__(self, model, criterion, client_loader, num_epochs=1):
+    def __init__(self, model, criterion, client_loader, num_epochs=1, lr=0.0001):
         # Move the model to the appropriate device
         self.model = copy.deepcopy(model).to(device)
         self.criterion = criterion
         self.train_loader = client_loader
         self.num_epochs = num_epochs
+        self.lr = lr
 
     def train(self, num_epochs=2):
-        optimizer = optim.SGD(self.model.parameters(), lr=0.0001, momentum=0.9)
+        optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
         self.model.train()
 
         for _ in range(num_epochs):

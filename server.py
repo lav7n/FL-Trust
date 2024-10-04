@@ -6,12 +6,13 @@ import copy
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Server:
-    def __init__(self, model, criterion, num_clients, alpha=1):
+    def __init__(self, model, criterion, num_clients, alpha=1, LRPoison=False):
         # Move the model to the appropriate device (CPU or GPU)
         self.model = model.to(device)
         self.criterion = criterion
         self.num_clients = num_clients
         self.alpha = alpha  # Trust-weighting factor for FLTrust
+        self.LRPoison = LRPoison
 
     def Cosine(self, w1, w2):
         dot_product = np.dot(w1, w2)

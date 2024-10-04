@@ -22,7 +22,7 @@ parser.add_argument('--num_rounds', type=int, default=20, help='Number of traini
 parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
+parser.add_argument('--attack_type', type=str, default='lr_poison', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=0.1, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
@@ -43,9 +43,18 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
                                         noise_stddev=args.noise_stddev)
 client_datasets = client_data_loader.get_client_datasets()
 
-clients = [Client(model=model, criterion=criterion, client_loader=train_loader, num_epochs=args.num_epochs)
-           for train_loader in client_datasets]
-
+default_lr = 0.0001  # Default learning rate for non-malicious clients
+malicious_lr = 1.0 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
+clients = [
+    Client(
+        model=model,
+        criterion=criterion,
+        client_loader=train_loader,
+        num_epochs=args.num_epochs,
+        lr=(malicious_lr if i < args.num_malicious else default_lr)
+    )
+    for i, train_loader in enumerate(client_datasets)
+]
 root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1)

@@ -40,6 +40,8 @@ class ClientDataLoader:
                 elif self.attack_type == 'gaussian_noise':
                     noise = torch.normal(mean=0, std=self.noise_stddev, size=x_data.size())
                     x_data = x_data + noise
+                elif self.attack_type == 'lr_poison':
+                    continue
 
             train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True)
             self.client_datasets.append(train_loader)
@@ -112,9 +114,6 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False, num_clie
     file_name = f"results/Run_{run_type}_Clients_{num_clients}_Rounds_{num_rounds}_Malicious_{num_malicious}_{timestamp}.png"
     plt.savefig(file_name)
     print(f"Graph saved as {file_name}")
-
-    # Show the plot
-    plt.show()
 
 
 # Call the save function after training
