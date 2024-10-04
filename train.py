@@ -97,20 +97,26 @@ PlotResult(
 
 if args.FLTrust:
 
-    def Cosine(w1, w2):
-        # Flatten both weight arrays
-        w1_flat = w1.ravel()
-        w2_flat = w2.ravel()
+    def CosineElementWise(A, B):
+        # Initialize an empty matrix to store element-wise cosine similarities
+        C = np.zeros(A.shape)
 
-        # Compute the dot product and norms
-        dot_product = np.dot(w1_flat, w2_flat)
-        norm1 = np.linalg.norm(w1_flat)
-        norm2 = np.linalg.norm(w2_flat)
+        # Iterate through each element in A and B to compute cosine similarity
+        for i in range(A.shape[0]):
+            for j in range(A.shape[1]):
+                # Compute cosine similarity for each corresponding element
+                dot_product = A[i, j] * B[i, j]
+                norm1 = np.linalg.norm(A[i, j])
+                norm2 = np.linalg.norm(B[i, j])
 
-        return dot_product / (norm1 * norm2)
+                # Store the cosine similarity in C, handling zero norms
+                if norm1 != 0 and norm2 != 0:
+                    C[i, j] = dot_product / (norm1 * norm2)
+                else:
+                    C[i, j] = 0  # Default to 0 if norm is zero to avoid NaN
 
+        return C
 
-    sim = Cosine(A, B)
-    print("Root tested on client", A)
-    print("Client tested on root", B)
-    print("Cosine Similarity between A and B:", sim)
+    # Example usage
+    C = CosineElementWise(A, B)
+    print("Element-wise Cosine Similarity Matrix C:\n", C)
