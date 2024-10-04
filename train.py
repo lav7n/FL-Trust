@@ -97,27 +97,49 @@ PlotResult(
 
 if args.FLTrust:
 
-    def CosineElementWise(A, B):
-        # Initialize an empty matrix to store element-wise cosine similarities
-        C = np.zeros(A.shape)
+    def CosineSimilarityRowWise(A, B):
+        """Computes cosine similarity between rows of matrices A and B."""
+        num_rows = A.shape[0]
+        C = np.zeros((num_rows, num_rows))
 
-        # Iterate through each element in A and B to compute cosine similarity
-        for i in range(A.shape[0]):
-            for j in range(A.shape[1]):
-                # Compute cosine similarity for each corresponding element
-                dot_product = A[i, j] * B[i, j]
-                norm1 = np.linalg.norm(A[i, j])
-                norm2 = np.linalg.norm(B[i, j])
+        # Compute row-wise cosine similarity
+        for i in range(num_rows):
+            for j in range(num_rows):
+                dot_product = np.dot(A[i], B[j])
+                norm1 = np.linalg.norm(A[i])
+                norm2 = np.linalg.norm(B[j])
 
-                # Store the cosine similarity in C, handling zero norms
+                # Store similarity, handling zero norms
                 if norm1 != 0 and norm2 != 0:
                     C[i, j] = dot_product / (norm1 * norm2)
                 else:
-                    C[i, j] = 0  # Default to 0 if norm is zero to avoid NaN
+                    C[i, j] = 0  # Avoid NaN by setting similarity to 0 if any norm is zero
 
         return C
 
-    # Example usage
-    C = CosineElementWise(A, B)
-    print("Element-wise Cosine Similarity Matrix C:\n", C)
-    print(A,B)
+    def CosineSimilarityColumnWise(A, B):
+        """Computes cosine similarity between columns of matrices A and B."""
+        num_cols = A.shape[1]
+        D = np.zeros((num_cols, num_cols))
+
+        # Compute column-wise cosine similarity
+        for i in range(num_cols):
+            for j in range(num_cols):
+                dot_product = np.dot(A[:, i], B[:, j])
+                norm1 = np.linalg.norm(A[:, i])
+                norm2 = np.linalg.norm(B[:, j])
+
+                # Store similarity, handling zero norms
+                if norm1 != 0 and norm2 != 0:
+                    D[i, j] = dot_product / (norm1 * norm2)
+                else:
+                    D[i, j] = 0  # Avoid NaN by setting similarity to 0 if any norm is zero
+
+        return D
+
+    # Calculate row-wise and column-wise cosine similarity matrices
+    C = CosineSimilarityRowWise(A, B)
+    D = CosineSimilarityColumnWise(A, B)
+
+    print("Row-wise Cosine Similarity Matrix C:\n", C)
+    print("Column-wise Cosine Similarity Matrix D:\n", D)
