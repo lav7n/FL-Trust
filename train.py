@@ -23,7 +23,7 @@ parser.add_argument('--num_malicious', type=int, default=9, help='Number of mali
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='lr_poison', help='Type of attack to apply to malicious clients')
-parser.add_argument('--noise_stddev', type=float, default=0.1, help='Standard deviation of noise for Gaussian noise attack')
+parser.add_argument('--noise_stddev', type=float, default=16, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
 
