@@ -23,7 +23,7 @@ parser.add_argument('--num_malicious', type=int, default=9, help='Number of mali
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='lr_poison', help='Type of attack to apply to malicious clients')
-parser.add_argument('--noise_stddev', type=float, default=16, help='Standard deviation of noise for Gaussian noise attack')
+parser.add_argument('--noise_stddev', type=float, default=128, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
 
@@ -44,7 +44,7 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
 client_datasets = client_data_loader.get_client_datasets()
 
 default_lr = 0.0001  # Default learning rate for non-malicious clients
-malicious_lr = 0.1 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
+malicious_lr = 0.01 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
 clients = [
     Client(
         model=model,
@@ -147,4 +147,3 @@ if args.FLTrust:
     print("Column-wise similarity vector D:", D)
     print("Shape of row-wise similarity vector C:", C.shape)
     print("Shape of column-wise similarity vector D:", D.shape)
-
