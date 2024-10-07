@@ -71,7 +71,7 @@ if args.FLTrust:
         root_client_only=False
     )
 else:
-    print("FLTrust Disabled!")
+    print("FedAvg")
     accuracies_with_fltrust = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
