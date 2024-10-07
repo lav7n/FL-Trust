@@ -62,7 +62,7 @@ server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 print("FLTrust: ", args.FLTrust)
 if args.FLTrust:
     print("FLTrust Enabled!")
-    accuracies_with_fltrust, root_client_accuracies, A, B = server.Train(
+    accuracies, root_client_accuracies, A, B = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
@@ -72,7 +72,7 @@ if args.FLTrust:
     )
 else:
     print("FedAvg")
-    accuracies_with_fltrust = server.Train(
+    accuracies = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
@@ -82,12 +82,12 @@ else:
     )
     root_client_accuracies = None
 
-print("Global Model Accuracies across rounds with FLTrust:", accuracies_with_fltrust)
-if root_client_accuracies:
+print("Global Model Accuracies across rounds:", accuracies)
+if args.FLTrust:
     print("Root Client Accuracies across rounds:", root_client_accuracies)
 
 PlotResult(
-    accuracies_with_fltrust,
+    accuracies,
     root_accuracies=root_client_accuracies,
     fltrust_enabled=args.FLTrust,
     num_clients=args.num_clients,
