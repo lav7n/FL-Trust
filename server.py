@@ -1,6 +1,33 @@
 import numpy as np
 import torch
 import copy
+import shutil
+import matplotlib.pyplot as plt
+import os
+# Function to save histogram of model weights for each communication round
+def save_histogram_of_weights(model_state_dict, round_num, folder='HistoRounds'):
+    # Create folder if it doesn't exist
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    
+    # Flatten all model weights into a single list
+    all_weights = np.concatenate([v.cpu().numpy().flatten() for v in model_state_dict.values()])
+    print(all_weights)
+    # Dynamically calculate the number of bins based on the range of weight values
+    min_weight, max_weight = np.min(all_weights), np.max(all_weights)
+    # bins = np.linspace(min_weight, max_weight, num=50)  # Create 50 bins between min and max values
+    bins = np.linspace(-0.1, 0.1, num=50)
+    # Create a histogram
+    plt.figure(figsize=(10, 6))
+    plt.hist(all_weights, bins=bins, alpha=0.75, color='blue', edgecolor='black')
+    plt.title(f'Histogram of Model Weights - Round {round_num + 1}')
+    plt.xlabel('Weight Value')
+    plt.ylabel('Frequency')
+
+    # Save the figure
+    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}.png')
+    plt.savefig(hist_path)
+    plt.close()
 
 # Detect if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -42,7 +69,15 @@ class Server:
 
             # Calculate cosine similarity as a trust score
             cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
+
+            if np.isnan(cosine_sim):
+                print(f"NaN encountered at Client {client_id + 1}")
+                print(f"Root Weights: {root_weights_flattened}")
+                print(f"Client {client_id + 1} Weights: {client_weights_flattened}")
+                cosine_sim = 0  # Set NaN cosine similarity to 0
+                client_weights_flattened = np.where(np.isnan(client_weights_flattened), 0, client_weights_flattened)
             trust_score = max(cosine_sim, 0)  # Trust score must be non-negative
+            
 
             # Normalize the trust score using norms
             norm_factor = np.linalg.norm(root_weights_flattened) / np.linalg.norm(client_weights_flattened)
@@ -94,6 +129,9 @@ class Server:
         for rnd in range(num_rounds):
             print(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
+            # Save histogram of global model weights at the start of each round
+            save_histogram_of_weights(self.model.state_dict(), rnd)
+
             # ROOT CLIENT ONLY
             if root_client_only and root_client:
                 print("Training only the root client...")
@@ -127,7 +165,7 @@ class Server:
 
                 # Test client accuracy after local Training
                 client_accuracy = self.test_client_locally(client, client.train_loader)
-                # print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
+                print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
@@ -201,3 +239,8 @@ class Server:
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
         return 100. * correct / len(data_loader.dataset)
+
+
+
+
+# Updated Train function to save histograms of model weights after each round

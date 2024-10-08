@@ -11,7 +11,13 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import os
+import shutil
 from datetime import datetime
+
+if os.path.exists('HistoRounds'):
+    shutil.rmtree('HistoRounds')
+os.makedirs('HistoRounds')
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
@@ -19,7 +25,7 @@ print(f"Device: {device}")
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=30, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
-parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
+parser.add_argument('--num_malicious', type=int, default=6, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='lr_poison', help='Type of attack to apply to malicious clients')
@@ -44,7 +50,7 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
 client_datasets = client_data_loader.get_client_datasets()
 
 default_lr = 0.0001  # Default learning rate for non-malicious clients
-malicious_lr = 0.01 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
+malicious_lr = 0.1 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
 clients = [
     Client(
         model=model,
@@ -94,56 +100,3 @@ PlotResult(
     num_rounds=args.num_rounds,
     num_malicious=args.num_malicious
 )
-
-if args.FLTrust:
-
-    def CosineSimilarityRowWise(A, B):
-        """Computes cosine similarity between corresponding rows of matrices A and B."""
-        num_rows = A.shape[0]
-        C = np.zeros(num_rows)
-
-        # Compute row-wise cosine similarity between corresponding rows
-        for i in range(num_rows):
-            dot_product = np.dot(A[i], B[i])
-            norm1 = np.linalg.norm(A[i])
-            norm2 = np.linalg.norm(B[i])
-
-            # Store similarity, handling zero norms
-            if norm1 != 0 and norm2 != 0:
-                C[i] = dot_product / (norm1 * norm2)
-            else:
-                C[i] = 0  # Avoid NaN if norms are zero
-
-        return C
-
-    def CosineSimilarityColumnWise(A, B):
-        """Computes cosine similarity between corresponding columns of matrices A and B."""
-        num_cols = A.shape[1]
-        D = np.zeros(num_cols)
-
-        # Compute column-wise cosine similarity between corresponding columns
-        for i in range(num_cols):
-            dot_product = np.dot(A[:, i], B[:, i])
-            norm1 = np.linalg.norm(A[:, i])
-            norm2 = np.linalg.norm(B[:, i])
-
-            # Store similarity, handling zero norms
-            if norm1 != 0 and norm2 != 0:
-                D[i] = dot_product / (norm1 * norm2)
-            else:
-                D[i] = 0  # Avoid NaN if norms are zero
-
-        return D
-
-    # Example usage and shape printing
-    print("Shape of A:", A.shape)
-    print("Shape of B:", B.shape)
-
-    # Calculate row-wise and column-wise cosine similarity vectors
-    C = CosineSimilarityRowWise(A, B)
-    D = CosineSimilarityColumnWise(A, B)
-
-    print("Row-wise similarity vector C:", C)
-    print("Column-wise similarity vector D:", D)
-    print("Shape of row-wise similarity vector C:", C.shape)
-    print("Shape of column-wise similarity vector D:", D.shape)
