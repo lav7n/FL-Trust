@@ -39,6 +39,7 @@ class ClientDataLoader:
                     y_data[:] = 9  # Flip all labels to class 9
                 elif self.attack_type == 'gaussian_noise':
                     noise = torch.normal(mean=0, std=self.noise_stddev, size=x_data.size())
+                    print(f"Adding Gaussian noise with stddev {self.noise_stddev}")
                     x_data = x_data + noise
                 elif self.attack_type == 'lr_poison':
                     continue
@@ -117,3 +118,29 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False, num_clie
 
 
 # Call the save function after training
+
+
+# Function to save histogram of model weights for each communication round
+def save_histogram_of_weights(model_state_dict, round_num, folder='HistoRounds'):
+    # Create folder if it doesn't exist
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    
+    # Flatten all model weights into a single list
+    all_weights = np.concatenate([v.cpu().numpy().flatten() for v in model_state_dict.values()])
+    print(all_weights)
+    # Dynamically calculate the number of bins based on the range of weight values
+    min_weight, max_weight = np.min(all_weights), np.max(all_weights)
+    # bins = np.linspace(min_weight, max_weight, num=50)  # Create 50 bins between min and max values
+    bins = np.linspace(-0.1, 0.1, num=50)
+    # Create a histogram
+    plt.figure(figsize=(10, 6))
+    plt.hist(all_weights, bins=bins, alpha=0.75, color='blue', edgecolor='black')
+    plt.title(f'Histogram of Model Weights - Round {round_num + 1}')
+    plt.xlabel('Weight Value')
+    plt.ylabel('Frequency')
+
+    # Save the figure
+    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}.png')
+    plt.savefig(hist_path)
+    plt.close()

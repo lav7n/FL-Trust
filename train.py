@@ -23,12 +23,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
-parser.add_argument('--num_clients', type=int, default=30, help='Number of clients')
-parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
-parser.add_argument('--num_malicious', type=int, default=6, help='Number of malicious clients')
+parser.add_argument('--num_clients', type=int, default=2, help='Number of clients')
+parser.add_argument('--num_rounds', type=int, default=5, help='Number of training rounds')
+parser.add_argument('--num_malicious', type=int, default=1, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='lr_poison', help='Type of attack to apply to malicious clients')
+parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=128, help='Standard deviation of noise for Gaussian noise attack')
 
 args = parser.parse_args()
@@ -68,7 +68,7 @@ server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
 print("FLTrust: ", args.FLTrust)
 if args.FLTrust:
     print("FLTrust Enabled!")
-    accuracies, root_client_accuracies, A, B = server.Train(
+    accuracies, root_client_accuracies, C = server.Train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
@@ -89,14 +89,16 @@ else:
     root_client_accuracies = None
 
 print("Global Model Accuracies across rounds:", accuracies)
+
 if args.FLTrust:
     print("Root Client Accuracies across rounds:", root_client_accuracies)
+    print("Cosine matrix: ", C)
 
-PlotResult(
-    accuracies,
-    root_accuracies=root_client_accuracies,
-    fltrust_enabled=args.FLTrust,
-    num_clients=args.num_clients,
-    num_rounds=args.num_rounds,
-    num_malicious=args.num_malicious
-)
+# PlotResult(
+#     accuracies,
+#     root_accuracies=root_client_accuracies,
+#     fltrust_enabled=args.FLTrust,
+#     num_clients=args.num_clients,
+#     num_rounds=args.num_rounds,
+#     num_malicious=args.num_malicious
+# )

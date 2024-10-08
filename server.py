@@ -4,32 +4,9 @@ import copy
 import shutil
 import matplotlib.pyplot as plt
 import os
-# Function to save histogram of model weights for each communication round
-def save_histogram_of_weights(model_state_dict, round_num, folder='HistoRounds'):
-    # Create folder if it doesn't exist
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    
-    # Flatten all model weights into a single list
-    all_weights = np.concatenate([v.cpu().numpy().flatten() for v in model_state_dict.values()])
-    print(all_weights)
-    # Dynamically calculate the number of bins based on the range of weight values
-    min_weight, max_weight = np.min(all_weights), np.max(all_weights)
-    # bins = np.linspace(min_weight, max_weight, num=50)  # Create 50 bins between min and max values
-    bins = np.linspace(-0.1, 0.1, num=50)
-    # Create a histogram
-    plt.figure(figsize=(10, 6))
-    plt.hist(all_weights, bins=bins, alpha=0.75, color='blue', edgecolor='black')
-    plt.title(f'Histogram of Model Weights - Round {round_num + 1}')
-    plt.xlabel('Weight Value')
-    plt.ylabel('Frequency')
+from sklearn.metrics.pairwise import cosine_similarity
+from dataloaders import save_histogram_of_weights
 
-    # Save the figure
-    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}.png')
-    plt.savefig(hist_path)
-    plt.close()
-
-# Detect if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Server:
@@ -72,7 +49,7 @@ class Server:
 
             if np.isnan(cosine_sim):
                 print(f"NaN encountered at Client {client_id + 1}")
-                print(f"Root Weights: {root_weights_flattened}")
+                # print(f"Root Weights: {root_weights_flattened}")
                 print(f"Client {client_id + 1} Weights: {client_weights_flattened}")
                 cosine_sim = 0  # Set NaN cosine similarity to 0
                 client_weights_flattened = np.where(np.isnan(client_weights_flattened), 0, client_weights_flattened)
@@ -112,24 +89,11 @@ class Server:
         # Initialize matrices to store accuracies
         root_on_client_matrix = np.zeros((num_rounds, self.num_clients))
         client_on_root_matrix = np.zeros((num_rounds, self.num_clients))
-
-        # Test initial global model  
-        if test_global_model:
-            initial_accuracy = self.test_global(test_loader)
-            accuracies.append(initial_accuracy)
-            print(f'Initial Global Model Accuracy: {initial_accuracy:.2f}%')
-
-        # Test root client before Training
-        if FLTrust and root_client and test_global_model:
-            root_client_initial_accuracy = self.test_client_locally(root_client, root_client.train_loader)
-            root_client_accuracies.append(root_client_initial_accuracy)
-            print(f'Initial Root Client Accuracy: {root_client_initial_accuracy:.2f}%')
+        similarity_matrix = np.zeros((num_rounds, self.num_clients))
 
         # Training rounds
         for rnd in range(num_rounds):
             print(f"\n--- Round {rnd + 1}/{num_rounds} ---")
-
-            # Save histogram of global model weights at the start of each round
             save_histogram_of_weights(self.model.state_dict(), rnd)
 
             # ROOT CLIENT ONLY
@@ -169,6 +133,19 @@ class Server:
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
+                # Visualize input data
+                print(f"Visualizing input data for Client {client_id + 1}...")
+                data_loader = client.train_loader
+                batch = next(iter(data_loader))
+                images, labels = batch
+                plt.figure(figsize=(10, 10))
+                for i in range(9):  # Visualize the first 9 images in the batch
+                    plt.subplot(3, 3, i + 1)
+                    plt.imshow(images[i].squeeze(), cmap='gray')  # Remove extra dimension
+                    plt.title(labels[i].item())
+                    plt.axis('off')
+                plt.show()
+
                 if FLTrust and root_client:
 
                     # Test the root client on the current client's data
@@ -180,6 +157,16 @@ class Server:
                     client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
                     # print(f'Client {client_id + 1} Accuracy on Root Client: {client_on_root_accuracy:.2f}% \n\n')
                     client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
+            
+            # Update similarity matrix
+            if root_client:
+                root_client_weights = root_client.get_model_weights()  # Get the weights of the root client
+                for client_id, client_model in enumerate(client_models):
+                    client_model_weights = np.concatenate([np.array(v).flatten() for v in client_model.values()]) # Flatten Clients
+                    root_client_weights_list = np.concatenate([np.array(v).flatten() for v in root_client_weights.values()]) #Flatten Root Client
+                    similarity = cosine_similarity([client_model_weights], [root_client_weights_list])[0][0]
+                    similarity_matrix[rnd, client_id] = similarity
+                        
 
             # FLTRUST
             if FLTrust and root_client:
@@ -199,7 +186,7 @@ class Server:
                 accuracies.append(global_accuracy)
                 print(f'Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%')
 
-        return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix
+        return accuracies, root_client_accuracies, similarity_matrix
 
 
     def FedAvg(self, client_models):
@@ -239,8 +226,3 @@ class Server:
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
         return 100. * correct / len(data_loader.dataset)
-
-
-
-
-# Updated Train function to save histograms of model weights after each round
