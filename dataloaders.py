@@ -41,8 +41,6 @@ class ClientDataLoader:
                     noise = torch.normal(mean=0, std=self.noise_stddev, size=x_data.size())
                     print(f"Adding Gaussian noise with stddev {self.noise_stddev}")
                     x_data = x_data + noise
-                elif self.attack_type == 'lr_poison':
-                    continue
 
             train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True)
             self.client_datasets.append(train_loader)
@@ -121,7 +119,7 @@ def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False, num_clie
 
 
 # Function to save histogram of model weights for each communication round
-def save_histogram_of_weights(model_state_dict, round_num, folder='HistoRounds'):
+def save_histogram_of_weights(model_state_dict, round_num, clientid, folder='HistoRounds'):
     # Create folder if it doesn't exist
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -141,6 +139,6 @@ def save_histogram_of_weights(model_state_dict, round_num, folder='HistoRounds')
     plt.ylabel('Frequency')
 
     # Save the figure
-    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}.png')
+    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}_Client_{clientid+1}.png')
     plt.savefig(hist_path)
     plt.close()

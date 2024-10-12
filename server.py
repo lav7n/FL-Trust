@@ -24,24 +24,28 @@ class Server:
         norm2 = np.linalg.norm(w2)
         return dot_product / (norm1 * norm2)
 
+
     def FLTrust(self, root_client, client_models):
         # Train root client and get its deltas
         root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
         root_client.train()
         root_delta = {k: root_client.get_model_weights()[k] - self.model.state_dict()[k] 
                       for k in self.model.state_dict().keys()}
-
-        # Flatten root client's delta into a 1D array
         root_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in root_delta.values()])
 
         total_trust_score = 0
         trust_scores = []
         deltas = []
 
-        # Calculate trust scores and deltas for each client
         for client_id, client_model in enumerate(client_models):
-            # Compute client delta
-            client_delta = {k: client_model[k] - self.model.state_dict()[k] for k in self.model.state_dict().keys()}
+            client_delta = {
+                k: torch.where(
+                    torch.isnan(client_model[k] - self.model.state_dict()[k]), 
+                    torch.zeros_like(client_model[k]), 
+                    client_model[k] - self.model.state_dict()[k]
+                )
+                for k in self.model.state_dict().keys()
+            }
             client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
 
             # Calculate cosine similarity as a trust score
@@ -49,7 +53,7 @@ class Server:
 
             if np.isnan(cosine_sim):
                 print(f"NaN encountered at Client {client_id + 1}")
-                # print(f"Root Weights: {root_weights_flattened}")
+                print(f"Root Weights: {root_weights_flattened}")
                 print(f"Client {client_id + 1} Weights: {client_weights_flattened}")
                 cosine_sim = 0  # Set NaN cosine similarity to 0
                 client_weights_flattened = np.where(np.isnan(client_weights_flattened), 0, client_weights_flattened)
@@ -94,7 +98,6 @@ class Server:
         # Training rounds
         for rnd in range(num_rounds):
             print(f"\n--- Round {rnd + 1}/{num_rounds} ---")
-            save_histogram_of_weights(self.model.state_dict(), rnd)
 
             # ROOT CLIENT ONLY
             if root_client_only and root_client:
@@ -126,6 +129,7 @@ class Server:
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
                 client_models.append(client.get_model_weights())
+                save_histogram_of_weights(client.get_model_weights(), rnd, client_id)
 
                 # Test client accuracy after local Training
                 client_accuracy = self.test_client_locally(client, client.train_loader)
@@ -133,60 +137,59 @@ class Server:
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
-                # Visualize input data
-                print(f"Visualizing input data for Client {client_id + 1}...")
-                data_loader = client.train_loader
-                batch = next(iter(data_loader))
-                images, labels = batch
-                plt.figure(figsize=(10, 10))
-                for i in range(9):  # Visualize the first 9 images in the batch
-                    plt.subplot(3, 3, i + 1)
-                    plt.imshow(images[i].squeeze(), cmap='gray')  # Remove extra dimension
-                    plt.title(labels[i].item())
-                    plt.axis('off')
-                plt.show()
+                # # Visualize input data
+                # print(f"Visualizing input data for Client {client_id + 1}...")
+                # data_loader = client.train_loader
+                # batch = next(iter(data_loader))
+                # images, labels = batch
+                # plt.figure(figsize=(10, 10))
+                # for i in range(9):  # Visualize the first 9 images in the batch
+                #     plt.subplot(3, 3, i + 1)
+                #     plt.imshow(images[i].squeeze(), cmap='gray')  # Remove extra dimension
+                #     plt.title(labels[i].item())
+                #     plt.axis('off')
+                # plt.show()
 
-                if FLTrust and root_client:
+                if FLTrust and root_client: #A,B,C
 
-                    # Test the root client on the current client's data
                     root_on_client_accuracy = self.test_client_locally(root_client, client.train_loader)
                     # print(f'\n Root Client Accuracy on Client {client_id + 1}: {root_on_client_accuracy:.2f}%')
                     root_on_client_matrix[rnd, client_id] = root_on_client_accuracy
 
-                    # Test the current client on the root client's data
                     client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
                     # print(f'Client {client_id + 1} Accuracy on Root Client: {client_on_root_accuracy:.2f}% \n\n')
                     client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
-            
-            # Update similarity matrix
-            if root_client:
-                root_client_weights = root_client.get_model_weights()  # Get the weights of the root client
-                for client_id, client_model in enumerate(client_models):
-                    client_model_weights = np.concatenate([np.array(v).flatten() for v in client_model.values()]) # Flatten Clients
-                    root_client_weights_list = np.concatenate([np.array(v).flatten() for v in root_client_weights.values()]) #Flatten Root Client
-                    similarity = cosine_similarity([client_model_weights], [root_client_weights_list])[0][0]
-                    similarity_matrix[rnd, client_id] = similarity
-                        
 
-            # FLTRUST
+                    # Initialize similarity matrix C for cosine similarity
+                    root_delta = {k: root_client.get_model_weights()[k] - self.model.state_dict()[k] for k in self.model.state_dict().keys()}
+                    root_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in root_delta.values()])
+
+                    for client_id, client_model in enumerate(client_models):
+                        client_delta = {k: client_model[k] - self.model.state_dict()[k] for k in self.model.state_dict().keys()}
+                        client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
+
+                        cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
+                        print(f"\nClient {client_id + 1} - Cosine Similarity Computed for matrix: {cosine_sim:.4f}")
+
+                        norm_factor = np.linalg.norm(client_weights_flattened) / np.linalg.norm(root_weights_flattened)
+                        normalized_trust_score = cosine_sim * norm_factor  # Normalize cosine similarity
+                        similarity_matrix[rnd, client_id] = normalized_trust_score
+
+                        print(f"Client {client_id + 1} - Norm Factor: {norm_factor:.4f}")
+                        print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}\n")
+
+
             if FLTrust and root_client:
                 self.FLTrust(root_client, client_models)
                 root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
                 root_client_accuracies.append(root_client_accuracy)
                 print(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
-
                 root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
                 print(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
 
-            # Test global model after aggregation
-            if test_global_model:
-                global_accuracy = self.test_global(test_loader)
-                accuracies.append(global_accuracy)
-                print(f'Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%')
-
-        return accuracies, root_client_accuracies, similarity_matrix
+        return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix, similarity_matrix
 
 
     def FedAvg(self, client_models):
