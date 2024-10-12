@@ -23,7 +23,7 @@ print(f"Device: {device}")
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=10, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=5, help='Number of training rounds')
-parser.add_argument('--num_malicious', type=int, default=3, help='Number of malicious clients')
+parser.add_argument('--num_malicious', type=int, default=2, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
@@ -44,8 +44,8 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
                                         noise_stddev=args.noise_stddev)
 client_datasets = client_data_loader.get_client_datasets()
 
-default_lr = 0.0001  # Default learning rate for non-malicious clients
-malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr  # Poisoned LR for malicious clients if attack type is lr_poison
+default_lr = 0.0001 
+malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr  
 
 # Ensure client_datasets contains the expected number of clients
 print(f"Total number of clients: {len(client_datasets)}")
@@ -62,7 +62,6 @@ clients = [
     for i, train_loader in enumerate(client_datasets)
 ]
 
-# Check the number of clients created
 print(f"Number of clients created: {len(clients)}")
 
 root_loader = RootClientDataLoader(batch_size=64)
@@ -103,10 +102,10 @@ if args.FLTrust:
     axs[0].set_title('Matrix A')
     axs[0].set_xlabel('Columns')
     axs[0].set_ylabel('Rows')
-    plt.colorbar(im, ax=axs[0])  # Add colorbar to the first subplot
+    # plt.colorbar(im, ax=axs[0])  # Add colorbar to the first subplot
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
-            axs[0].text(j, i, f'{matrix[i, j]:.2f}', ha='center', va='center', color='white', fontsize=8)
+            axs[0].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
 
     # Plot matrix B
     matrix = B
@@ -114,23 +113,22 @@ if args.FLTrust:
     axs[1].set_title('Matrix B')
     axs[1].set_xlabel('Columns')
     axs[1].set_ylabel('Rows')
-    plt.colorbar(im, ax=axs[1])  # Add colorbar to the second subplot
+    # plt.colorbar(im, ax=axs[1])  # Add colorbar to the second subplot
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
-            axs[1].text(j, i, f'{matrix[i, j]:.2f}', ha='center', va='center', color='white', fontsize=8)
-
-    # Plot matrix C
+            axs[1].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
+    C = np.clip(C, -1, 1)
+    C = np.round(C, 2)
     matrix = C
-    im = axs[2].imshow(matrix, cmap='viridis', interpolation='none')
+    im = axs[2].imshow(matrix, cmap='magma', interpolation='none')
     axs[2].set_title('Matrix C')
     axs[2].set_xlabel('Columns')
     axs[2].set_ylabel('Rows')
     plt.colorbar(im, ax=axs[2])  # Add colorbar to the third subplot
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
-            axs[2].text(j, i, f'{matrix[i, j]:.2f}', ha='center', va='center', color='white', fontsize=8)
+            axs[2].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
 
-    # Adjust layout for better spacing
     plt.tight_layout()
     plt.show()
 
