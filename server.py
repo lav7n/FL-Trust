@@ -34,7 +34,8 @@ class Server:
         trust_scores = []
         deltas = []
 
-        for client_id, client_model in enumerate(client_models):
+        for client_id, client_model in enumerate(client_models): 
+            #NaN check
             client_delta = {
                 k: torch.where(
                     torch.isnan(client_model[k]) | torch.isnan(self.model.state_dict()[k]) | torch.isnan(client_model[k] - self.model.state_dict()[k]), 
@@ -45,7 +46,6 @@ class Server:
             }
             client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
 
-            # Calculate cosine similarity as a trust score
             cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
 
             if np.isnan(cosine_sim):
@@ -56,11 +56,8 @@ class Server:
                 client_weights_flattened = np.where(np.isnan(client_weights_flattened), 0, client_weights_flattened)
             trust_score = max(cosine_sim, 0)  # Trust score must be non-negative
             
-            # Normalize the trust score using norms
             norm_factor = np.linalg.norm(root_weights_flattened) / np.linalg.norm(client_weights_flattened)
             normalized_trust_score = trust_score * norm_factor
-
-            # Store values
             trust_scores.append(normalized_trust_score)
             total_trust_score += normalized_trust_score
             deltas.append(client_delta)
@@ -69,7 +66,6 @@ class Server:
             # print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
             # print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
 
-        # Aggregate updates with FLTrust weights
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
         for i in range(1, len(deltas)):
             for k in delta_weight:
@@ -87,12 +83,10 @@ class Server:
         accuracies = []
         root_client_accuracies = []
 
-        # Initialize matrices to store accuracies
         root_on_client_matrix = np.zeros((num_rounds, self.num_clients))
         client_on_root_matrix = np.zeros((num_rounds, self.num_clients))
         similarity_matrix = np.zeros((num_rounds, self.num_clients))
 
-        # Training rounds
         for rnd in tqdm(range(num_rounds)):
             tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
@@ -108,9 +102,9 @@ class Server:
                 save_histogram_of_weights(client.get_model_weights(), rnd, client_id)
 
                 # Test client accuracy after local training
-                client_accuracy = self.test_client_locally(client, client.train_loader)
+                # client_accuracy = self.test_client_locally(client, client.train_loader)
                 # print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
-                client_accuracy2 = self.test_client_locally(client, test_loader)
+                # client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
                 if FLTrust and root_client:  # A, B, C matrix updates
@@ -147,13 +141,13 @@ class Server:
                     # print(f"Client {client_id + 1} - Norm Factor: {norm_factor:.4f}")
                     # print(f"Client {client_id + 1} - Matrix Normalized Trust Score: {normalized_trust_score:.4f}\n")
 
-            if FLTrust and root_client:
+            if FLTrust and root_client: #Testing Root Client
                 self.FLTrust(root_client, client_models)
-                root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
-                root_client_accuracies.append(root_client_accuracy)
-                tqdm.write(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
-                root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
-                tqdm.write(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
+                # root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
+                # root_client_accuracies.append(root_client_accuracy)
+                # tqdm.write(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
+                # root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
+                # tqdm.write(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
 
