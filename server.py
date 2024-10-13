@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 from sklearn.metrics.pairwise import cosine_similarity
 from dataloaders import save_histogram_of_weights
-
+from tqdm import tqdm
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Server:
@@ -93,8 +93,8 @@ class Server:
         similarity_matrix = np.zeros((num_rounds, self.num_clients))
 
         # Training rounds
-        for rnd in range(num_rounds):
-            print(f"\n--- Round {rnd + 1}/{num_rounds} ---")
+        for rnd in tqdm(range(num_rounds)):
+            tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
             # TRAIN ALL CLIENTS AND ROOT
             root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
@@ -145,22 +145,22 @@ class Server:
                     similarity_matrix[rnd, client_id] = normalized_trust_score
 
                     # print(f"Client {client_id + 1} - Norm Factor: {norm_factor:.4f}")
-                    print(f"Client {client_id + 1} - Matrix Normalized Trust Score: {normalized_trust_score:.4f}\n")
+                    # print(f"Client {client_id + 1} - Matrix Normalized Trust Score: {normalized_trust_score:.4f}\n")
 
             if FLTrust and root_client:
                 self.FLTrust(root_client, client_models)
                 root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
                 root_client_accuracies.append(root_client_accuracy)
-                print(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
+                tqdm.write(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
                 root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
-                print(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
+                tqdm.write(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
 
             # Test global model accuracy
             global_accuracy = self.test_global(test_loader)
             accuracies.append(global_accuracy)
-            print(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
+            tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
 
         return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix, similarity_matrix
 
