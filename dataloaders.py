@@ -126,7 +126,7 @@ def save_histogram_of_weights(model_state_dict, round_num, clientid, folder='His
     
     # Flatten all model weights into a single list
     all_weights = np.concatenate([v.cpu().numpy().flatten() for v in model_state_dict.values()])
-    print(all_weights)
+    # print(all_weights)
     # Dynamically calculate the number of bins based on the range of weight values
     min_weight, max_weight = np.min(all_weights), np.max(all_weights)
     # bins = np.linspace(min_weight, max_weight, num=50)  # Create 50 bins between min and max values
