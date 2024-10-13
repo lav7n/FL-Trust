@@ -21,13 +21,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
-parser.add_argument('--num_clients', type=int, default=10, help='Number of clients')
+parser.add_argument('--num_clients', type=int, default=15, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=5, help='Number of training rounds')
-parser.add_argument('--num_malicious', type=int, default=2, help='Number of malicious clients')
+parser.add_argument('--num_malicious', type=int, default=5, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
-parser.add_argument('--noise_stddev', type=float, default=128, help='Standard deviation of noise for Gaussian noise attack')
+parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
+parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 args = parser.parse_args()
 
 
@@ -92,44 +92,48 @@ else:
     root_client_accuracies = None
 
 print("Global Model Accuracies across rounds:", accuracies)
-
 if args.FLTrust:
-    fig, axs = plt.subplots(1, 3, figsize=(18, 6))  # Create a figure with 3 subplots in a single row
+
+    print("Matrix A: ", A)
+    print("Matrix B: ", B)
+    print("Matrix C: ", C)
 
     # Plot matrix A
-    matrix = A
-    im = axs[0].imshow(matrix, cmap='viridis', interpolation='none')
-    axs[0].set_title('Matrix A')
-    axs[0].set_xlabel('Columns')
-    axs[0].set_ylabel('Rows')
-    # plt.colorbar(im, ax=axs[0])  # Add colorbar to the first subplot
-    for i in range(matrix.shape[0]):
-        for j in range(matrix.shape[1]):
-            axs[0].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
-
-    # Plot matrix B
-    matrix = B
-    im = axs[1].imshow(matrix, cmap='viridis', interpolation='none')
-    axs[1].set_title('Matrix B')
-    axs[1].set_xlabel('Columns')
-    axs[1].set_ylabel('Rows')
-    # plt.colorbar(im, ax=axs[1])  # Add colorbar to the second subplot
-    for i in range(matrix.shape[0]):
-        for j in range(matrix.shape[1]):
-            axs[1].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
-    C = np.clip(C, -1, 1)
-    C = np.round(C, 2)
-    matrix = C
-    im = axs[2].imshow(matrix, cmap='magma', interpolation='none')
-    axs[2].set_title('Matrix C')
-    axs[2].set_xlabel('Columns')
-    axs[2].set_ylabel('Rows')
-    plt.colorbar(im, ax=axs[2])  # Add colorbar to the third subplot
-    for i in range(matrix.shape[0]):
-        for j in range(matrix.shape[1]):
-            axs[2].text(j, i, f'{matrix[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
-
-    plt.tight_layout()
+    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix A
+    im_A = plt.imshow(A, cmap='magma', interpolation='none')
+    plt.title('Root model on Clients data')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    for i in range(A.shape[0]):
+        for j in range(A.shape[1]):
+            plt.text(j, i, f'{A[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
+    plt.colorbar(im_A)  # Add colorbar to Matrix A
     plt.show()
 
+    # Plot matrix B
+    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix B
+    im_B = plt.imshow(B, cmap='magma', interpolation='none')
+    plt.title('Client Models on Root Data')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    for i in range(B.shape[0]):
+        for j in range(B.shape[1]):
+            plt.text(j, i, f'{B[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
+    plt.colorbar(im_B)  # Add colorbar to Matrix B
+    plt.show()
+
+    # Prepare and plot matrix C
+    C = np.clip(C, -1, 1)  # Ensure values are within [-1, 1]
+    C = np.round(C, 2)     # Round values to 2 decimal points
+
+    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix C
+    im_C = plt.imshow(C, cmap='magma', interpolation='none')
+    plt.title('Cosine Matrix')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    plt.colorbar(im_C)  # Add colorbar to Matrix C
+    for i in range(C.shape[0]):
+        for j in range(C.shape[1]):
+            plt.text(j, i, f'{C[i, j]:.2f}', ha='center', va='center', color='white', fontsize=4)
+    plt.show()
 

@@ -26,9 +26,6 @@ class Server:
 
 
     def FLTrust(self, root_client, client_models):
-        # Train root client and get its deltas
-        root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
-        root_client.train() #this is where scores differ
         root_delta = {k: root_client.get_model_weights()[k] - self.model.state_dict()[k] 
                       for k in self.model.state_dict().keys()}
         root_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in root_delta.values()])
@@ -69,7 +66,8 @@ class Server:
             deltas.append(client_delta)
 
             # Print Trust Score and Cosine Similarity for each client
-            print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
+            # print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
+            print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
 
         # Aggregate updates with FLTrust weights
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
@@ -98,7 +96,10 @@ class Server:
         for rnd in range(num_rounds):
             print(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
-            # TRAIN ALL CLIENTS 
+            # TRAIN ALL CLIENTS AND ROOT
+            root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
+            root_client.train() 
+
             client_models = []
             for client_id, client in enumerate(clients):
                 client.update_model_weights(self.model.state_dict())
@@ -155,6 +156,11 @@ class Server:
                 print(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
+
+            # Test global model accuracy
+            global_accuracy = self.test_global(test_loader)
+            accuracies.append(global_accuracy)
+            print(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
 
         return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix, similarity_matrix
 
