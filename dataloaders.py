@@ -4,7 +4,6 @@ import numpy as np
 import os
 import struct
 import matplotlib.pyplot as plt
-import os
 from datetime import datetime
 
 class RootClientDataLoader:
@@ -76,48 +75,6 @@ def load_npy_data(client_dir):
     y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
     return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)
 
-
-
-# Plotting and saving the graph
-import matplotlib.pyplot as plt
-import os
-from datetime import datetime
-
-import matplotlib.pyplot as plt
-import os
-from datetime import datetime
-
-def PlotResult(accuracies, root_accuracies=None, fltrust_enabled=False, num_clients=15, num_rounds=20, num_malicious=10):
-    plt.figure(figsize=(10, 6))
-
-    # Plot global model accuracies
-    plt.plot(range(1, len(accuracies) + 1), accuracies, label=f'{"FLTrust" if fltrust_enabled else "FedAvg"} Accuracies', marker='o')
-
-    # Plot root client accuracies if applicable
-    if fltrust_enabled and root_accuracies:
-        plt.plot(range(1, len(root_accuracies) + 1), root_accuracies, label='Root Client Accuracies', marker='x')
-
-    # Add labels, title, and text info
-    plt.xlabel('Round'), plt.ylabel('Accuracy (%)')
-    plt.title(f'Global Model Accuracy {"with FLTrust" if fltrust_enabled else "with FedAvg"}')
-    plt.text(0.05, 0.95, f'Clients: {num_clients}\nRounds: {num_rounds}\nMalicious: {num_malicious}', 
-             transform=plt.gca().transAxes, fontsize=10, verticalalignment='top', 
-             bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
-    
-    plt.legend()
-
-    # Save the plot
-    os.makedirs('results', exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_type = 'FLTrust' if fltrust_enabled else 'FedAvg'
-    file_name = f"results/Run_{run_type}_Clients_{num_clients}_Rounds_{num_rounds}_Malicious_{num_malicious}_{timestamp}.png"
-    plt.savefig(file_name)
-    print(f"Graph saved as {file_name}")
-
-
-# Call the save function after training
-
-
 # Function to save histogram of model weights for each communication round
 def save_histogram_of_weights(model_state_dict, round_num, clientid, folder='HistoRounds'):
     # Create folder if it doesn't exist
@@ -142,3 +99,64 @@ def save_histogram_of_weights(model_state_dict, round_num, clientid, folder='His
     hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}_Client_{clientid+1}.png')
     plt.savefig(hist_path)
     plt.close()
+
+def save_matrices(A, B, C, attack_type, num_clients, num_malicious):
+    """
+    Save the matrices A, B, and C as images in the 'matrix_results' directory.
+
+    Args:
+        A (np.ndarray): Matrix A representing the root client on clients' data.
+        B (np.ndarray): Matrix B representing the clients on root client's data.
+        C (np.ndarray): Matrix C representing cosine similarity between clients and root client.
+        attack_type (str): The type of attack used during training.
+        num_clients (int): Total number of clients.
+        num_malicious (int): Number of malicious clients.
+    """
+
+    # Create the directory if it doesn't exist
+    results_dir = f'matrix_results/{attack_type}_{num_clients}clients_{num_malicious}malicious'
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Save Matrix A
+    plt.figure(figsize=(6, 6))
+    im_A = plt.imshow(A, cmap='magma', interpolation='none')
+    plt.title('Root model on Clients data (Matrix A)')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    for i in range(A.shape[0]):
+        for j in range(A.shape[1]):
+            plt.text(j, i, f'{A[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
+    plt.colorbar(im_A)
+    plt.savefig(os.path.join(results_dir, 'matrix_A.png'))
+    plt.close()
+
+    # Save Matrix B
+    plt.figure(figsize=(6, 6))
+    im_B = plt.imshow(B, cmap='magma', interpolation='none')
+    plt.title('Client Models on Root Data (Matrix B)')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    for i in range(B.shape[0]):
+        for j in range(B.shape[1]):
+            plt.text(j, i, f'{B[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
+    plt.colorbar(im_B)
+    plt.savefig(os.path.join(results_dir, 'matrix_B.png'))
+    plt.close()
+
+    # Prepare and save Matrix C (Cosine similarity matrix)
+    C = np.clip(C, -1, 1)  # Ensure values are within [-1, 1]
+    C = np.round(C, 2)     # Round values to 2 decimal points
+
+    plt.figure(figsize=(6, 6))
+    im_C = plt.imshow(C, cmap='magma', interpolation='none')
+    plt.title('Cosine Similarity Matrix (Matrix C)')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    for i in range(C.shape[0]):
+        for j in range(C.shape[1]):
+            plt.text(j, i, f'{C[i, j]:.2f}', ha='center', va='center', color='white', fontsize=4)
+    plt.colorbar(im_C)
+    plt.savefig(os.path.join(results_dir, 'matrix_C.png'))
+    plt.close()
+
+    print(f"Matrices saved to {results_dir}")

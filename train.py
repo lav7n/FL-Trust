@@ -3,7 +3,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from dataloaders import ClientDataLoader, RootClientDataLoader, TestDataLoader, PlotResult
+from dataloaders import ClientDataLoader, RootClientDataLoader, TestDataLoader
 from server import Server
 from client import Client
 from model import LeNet
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import os
 import shutil
 from datetime import datetime
+from dataloaders import save_matrices
 
 if os.path.exists('HistoRounds'):
     shutil.rmtree('HistoRounds')
@@ -22,7 +23,7 @@ print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=10, help='Number of clients')
-parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
+parser.add_argument('--num_rounds', type=int, default=1, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=9, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
@@ -92,48 +93,7 @@ else:
     root_client_accuracies = None
 
 print("Global Model Accuracies across rounds:", accuracies)
+
+
 if args.FLTrust:
-
-    print("Matrix A: ", A)
-    print("Matrix B: ", B)
-    print("Matrix C: ", C)
-
-    # Plot matrix A
-    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix A
-    im_A = plt.imshow(A, cmap='magma', interpolation='none')
-    plt.title('Root model on Clients data')
-    plt.xlabel('Columns')
-    plt.ylabel('Rows')
-    for i in range(A.shape[0]):
-        for j in range(A.shape[1]):
-            plt.text(j, i, f'{A[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
-    plt.colorbar(im_A)  # Add colorbar to Matrix A
-    plt.show()
-
-    # Plot matrix B
-    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix B
-    im_B = plt.imshow(B, cmap='magma', interpolation='none')
-    plt.title('Client Models on Root Data')
-    plt.xlabel('Columns')
-    plt.ylabel('Rows')
-    for i in range(B.shape[0]):
-        for j in range(B.shape[1]):
-            plt.text(j, i, f'{B[i, j]:.1f}', ha='center', va='center', color='white', fontsize=4)
-    plt.colorbar(im_B)  # Add colorbar to Matrix B
-    plt.show()
-
-    # Prepare and plot matrix C
-    C = np.clip(C, -1, 1)  # Ensure values are within [-1, 1]
-    C = np.round(C, 2)     # Round values to 2 decimal points
-
-    plt.figure(figsize=(6, 6))  # Create a new figure for Matrix C
-    im_C = plt.imshow(C, cmap='magma', interpolation='none')
-    plt.title('Cosine Matrix')
-    plt.xlabel('Columns')
-    plt.ylabel('Rows')
-    plt.colorbar(im_C)  # Add colorbar to Matrix C
-    for i in range(C.shape[0]):
-        for j in range(C.shape[1]):
-            plt.text(j, i, f'{C[i, j]:.2f}', ha='center', va='center', color='white', fontsize=4)
-    plt.show()
-
+    save_matrices(A, B, C, args.attack_type, args.num_clients, args.num_malicious)
