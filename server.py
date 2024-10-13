@@ -67,7 +67,7 @@ class Server:
 
             # Print Trust Score and Cosine Similarity for each client
             # print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
-            print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
+            # print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
 
         # Aggregate updates with FLTrust weights
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
@@ -109,7 +109,7 @@ class Server:
 
                 # Test client accuracy after local training
                 client_accuracy = self.test_client_locally(client, client.train_loader)
-                print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
+                # print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
                 client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
@@ -138,7 +138,7 @@ class Server:
                     client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
 
                     cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
-                    print(f"\nClient {client_id + 1} - Matrix Cosine Similarity Computed for matrix: {cosine_sim:.4f}")
+                    # print(f"\nClient {client_id + 1} - Matrix Cosine Similarity Computed for matrix: {cosine_sim:.4f}")
 
                     norm_factor = np.linalg.norm(client_weights_flattened) / np.linalg.norm(root_weights_flattened)
                     normalized_trust_score = cosine_sim * norm_factor 
