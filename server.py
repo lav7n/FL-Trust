@@ -107,47 +107,8 @@ class Server:
                 # client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
-                if FLTrust and root_client:  # A, B, C matrix updates
-                    
-                    # Calculate A: Test root client on current client's data
-                    root_on_client_accuracy = self.test_client_locally(root_client, client.train_loader)
-                    root_on_client_matrix[rnd, client_id] = root_on_client_accuracy
-
-                    # Calculate B: Test current client on root client's data
-                    client_on_root_accuracy = self.test_client_locally(client, root_client.train_loader)
-                    client_on_root_matrix[rnd, client_id] = client_on_root_accuracy
-
-                    # Calculate C: (Cosine similarity)
-                    root_delta = {k: root_client.get_model_weights()[k] - self.model.state_dict()[k] for k in self.model.state_dict().keys()}
-                    root_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in root_delta.values()])
-                    client_model = client_models[client_id]
-                    client_delta = {
-                            k: torch.where(
-                                torch.isnan(client_model[k]) | torch.isnan(self.model.state_dict()[k]) | torch.isnan(client_model[k] - self.model.state_dict()[k]), 
-                                torch.zeros_like(client_model[k]), 
-                                client_model[k] - self.model.state_dict()[k]
-                            )
-                            for k in self.model.state_dict().keys()
-                        }
-                    client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
-
-                    cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
-                    # print(f"\nClient {client_id + 1} - Matrix Cosine Similarity Computed for matrix: {cosine_sim:.4f}")
-
-                    norm_factor = np.linalg.norm(client_weights_flattened) / np.linalg.norm(root_weights_flattened)
-                    normalized_trust_score = cosine_sim * norm_factor 
-                    similarity_matrix[rnd, client_id] = normalized_trust_score
-
-                    # print(f"Client {client_id + 1} - Norm Factor: {norm_factor:.4f}")
-                    # print(f"Client {client_id + 1} - Matrix Normalized Trust Score: {normalized_trust_score:.4f}\n")
-
             if FLTrust and root_client: #Testing Root Client
                 self.FLTrust(root_client, client_models)
-                # root_client_accuracy = self.test_client_locally(root_client, root_client.train_loader)
-                # root_client_accuracies.append(root_client_accuracy)
-                # tqdm.write(f'Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%')
-                # root_client_accuracy2 = self.test_client_locally(root_client, test_loader)
-                # tqdm.write(f'Root Client Accuracy on test set after Round {rnd + 1}: {root_client_accuracy2:.2f}%')
             else:
                 self.FedAvg(client_models)
 
