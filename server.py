@@ -10,13 +10,14 @@ from tqdm import tqdm
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Server:
-    def __init__(self, model, criterion, num_clients, alpha=1, LRPoison=False):
+    def __init__(self, model, criterion, num_clients, alpha=1, LRPoison=False, printmetrics=False):
         # Move the model to the appropriate device (CPU or GPU)
         self.model = model.to(device)
         self.criterion = criterion
         self.num_clients = num_clients
         self.alpha = alpha  # Trust-weighting factor for FLTrust
         self.LRPoison = LRPoison
+        self.printmetrics = printmetrics
 
     def Cosine(self, w1, w2):
         dot_product = np.dot(w1, w2)
@@ -63,8 +64,9 @@ class Server:
             deltas.append(client_delta)
 
             # Print Trust Score and Cosine Similarity for each client
-            # print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
-            # print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
+            if self.printmetrics:
+                print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
+                print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
 
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
         for i in range(1, len(deltas)):
@@ -106,6 +108,10 @@ class Server:
                 # print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
                 # client_accuracy2 = self.test_client_locally(client, test_loader)
                 # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
+
+                if self.printmetrics:
+                    client_accuracy = self.test_client_locally(client, client.train_loader)
+                    print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
 
             if FLTrust and root_client: #Testing Root Client
                 self.FLTrust(root_client, client_models)

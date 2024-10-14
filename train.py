@@ -27,8 +27,9 @@ parser.add_argument('--num_rounds', type=int, default=20, help='Number of traini
 parser.add_argument('--num_malicious', type=int, default=25, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
+parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
+parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 args = parser.parse_args()
 
 
@@ -67,7 +68,7 @@ print(f"Number of clients created: {len(clients)}")
 
 root_loader = RootClientDataLoader(batch_size=64)
 root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
-server = Server(model, criterion, num_clients=args.num_clients, alpha=1)
+server = Server(model, criterion, num_clients=args.num_clients, alpha=1, printmetrics=args.printmetrics)
 
 print("FLTrust: ", args.FLTrust)
 if args.FLTrust:
@@ -78,7 +79,7 @@ if args.FLTrust:
         num_epochs=args.num_epochs,
         FLTrust=True,
         root_client=root_client,
-        root_client_only=False,
+        root_client_only=False
     )
 else:
     print("FedAvg")
