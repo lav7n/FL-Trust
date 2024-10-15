@@ -83,7 +83,7 @@ class Server:
         client_on_root_matrix = np.zeros((num_rounds, self.num_clients))
         similarity_matrix = np.zeros((num_rounds, self.num_clients))
 
-        for rnd in tqdm(range(num_rounds)):
+        for rnd in tqdm(range(num_rounds), bar_format='{l_bar}{bar} [ {n_fmt}/{total_fmt} ]'):
             tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
             # TRAIN ALL CLIENTS AND ROOT
@@ -91,7 +91,7 @@ class Server:
             root_client.train() 
 
             client_models = []
-            for client_id in tqdm(range(len(clients))):
+            for client_id in tqdm(range(len(clients)), bar_format='{l_bar}{bar} [ {n_fmt}/{total_fmt} ]'):
                 client = clients[client_id]
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
