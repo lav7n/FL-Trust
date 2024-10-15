@@ -83,7 +83,7 @@ class Server:
         client_on_root_matrix = np.zeros((num_rounds, self.num_clients))
         similarity_matrix = np.zeros((num_rounds, self.num_clients))
 
-        for rnd in tqdm(range(num_rounds), bar_format='{l_bar}{bar} [ {n_fmt}/{total_fmt} ]'):
+        for rnd in tqdm(range(num_rounds)):
             tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
             # TRAIN ALL CLIENTS AND ROOT
