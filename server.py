@@ -27,57 +27,52 @@ class Server:
 
     def FLTrust(self, root_client, client_models):
         root_delta = {k: root_client.get_model_weights()[k] - self.model.state_dict()[k] 
-                      for k in self.model.state_dict().keys()}
+                    for k in self.model.state_dict().keys()}
         root_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in root_delta.values()])
 
         total_trust_score = 0
         trust_scores = []
         deltas = []
 
-        for client_id, client_model in enumerate(client_models): 
-            #NaN check
+        for client_id, client_model in enumerate(client_models):
             client_delta = {
                 k: torch.where(
-                    torch.isnan(client_model[k]) | torch.isnan(self.model.state_dict()[k]) | torch.isnan(client_model[k] - self.model.state_dict()[k]), 
+                    torch.isnan(client_model[k]) | 
+                    torch.isnan(self.model.state_dict()[k]) | 
+                    torch.isnan(client_model[k] - self.model.state_dict()[k]), 
                     torch.zeros_like(client_model[k]), 
                     client_model[k] - self.model.state_dict()[k]
                 )
                 for k in self.model.state_dict().keys()
             }
+            
             client_weights_flattened = np.concatenate([param.cpu().numpy().ravel() for param in client_delta.values()])
 
             cosine_sim = self.Cosine(root_weights_flattened, client_weights_flattened)
 
             if np.isnan(cosine_sim):
-                print(f"NaN encountered at Client {client_id + 1}")
-                print(f"Root Weights: {root_weights_flattened}")
-                print(f"Client {client_id + 1} Weights: {client_weights_flattened}")
-                cosine_sim = 0  # Set NaN cosine similarity to 0
-                client_weights_flattened = np.where(np.isnan(client_weights_flattened), 0, client_weights_flattened)
-            trust_score = max(cosine_sim, 0)  # Trust score must be non-negative
+                cosine_sim = 0
             
-            norm_factor = np.linalg.norm(root_weights_flattened) / np.linalg.norm(client_weights_flattened)
+            trust_score = max(cosine_sim, 0)
+
+            norm_factor = np.linalg.norm(root_weights_flattened) / (np.linalg.norm(client_weights_flattened) + 1e-8)
             normalized_trust_score = trust_score * norm_factor
+            
             trust_scores.append(normalized_trust_score)
             total_trust_score += normalized_trust_score
             deltas.append(client_delta)
-
-            # Print Trust Score and Cosine Similarity for each client
-            if self.printmetrics:
-                print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
-                print(f"Client {client_id + 1} - Normalized Trust Score: {normalized_trust_score:.4f}")
 
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
         for i in range(1, len(deltas)):
             for k in delta_weight:
                 delta_weight[k] += trust_scores[i] * deltas[i][k]
 
-        # Normalize by total trust score and update the global model
-        for k in delta_weight:
-            delta_weight[k] /= total_trust_score
-            self.model.state_dict()[k] += self.alpha * delta_weight[k]
+        if total_trust_score > 0:
+            for k in delta_weight:
+                delta_weight[k] /= total_trust_score
+                if isinstance(self.model.state_dict()[k], torch.Tensor):
+                    self.model.state_dict()[k] += self.alpha * delta_weight[k].type_as(self.model.state_dict()[k])
 
-        # Load the updated weights into the global model
         self.model.load_state_dict(self.model.state_dict())
 
     def Train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, test_global_model=True, root_client_only=False):
