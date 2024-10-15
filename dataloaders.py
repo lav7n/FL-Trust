@@ -38,7 +38,7 @@ class ClientDataLoader:
                     print(f"Adding Gaussian noise with stddev {self.noise_stddev}")
                     x_data = x_data + noise
 
-            train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True)
+            train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True, drop_last=True)
             self.client_datasets.append(train_loader)
 
     def get_client_datasets(self):
