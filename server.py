@@ -96,10 +96,6 @@ class Server:
             client_models = []
             for client_id in range(len(clients)):
                 client = clients[client_id]
-                if len(client.get_data()) > 1:  # Check if the client has enough data
-                    client.train(num_epochs=num_epochs)
-                else:
-                    print(f"Client {client_id + 1} has insufficient data for training.")
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
                 client_models.append(client.get_model_weights())
