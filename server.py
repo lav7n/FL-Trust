@@ -91,7 +91,8 @@ class Server:
             root_client.train() 
 
             client_models = []
-            for client_id, client in tqdm(enumerate(clients)):
+            for client_id in tqdm(range(len(clients))):
+                client = clients[client_id]
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
                 client_models.append(client.get_model_weights())
