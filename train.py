@@ -23,7 +23,7 @@ print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
 parser.add_argument('--num_clients', type=int, default=100, help='Number of clients')
-parser.add_argument('--num_rounds', type=int, default=50, help='Number of training rounds')
+parser.add_argument('--num_rounds', type=int, default=30, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=25, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
