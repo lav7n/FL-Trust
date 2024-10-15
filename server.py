@@ -62,6 +62,9 @@ class Server:
             total_trust_score += normalized_trust_score
             deltas.append(client_delta)
 
+            if self.printmetrics:
+                print(f"Client {client_id + 1} - Trust Score: {trust_score:.4f}")
+
         delta_weight = {k: trust_scores[0] * deltas[0][k] for k in deltas[0].keys()}
         for i in range(1, len(deltas)):
             for k in delta_weight:
@@ -93,6 +96,10 @@ class Server:
             client_models = []
             for client_id in range(len(clients)):
                 client = clients[client_id]
+                if len(client.get_data()) > 1:  # Check if the client has enough data
+                    client.train(num_epochs=num_epochs)
+                else:
+                    print(f"Client {client_id + 1} has insufficient data for training.")
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
                 client_models.append(client.get_model_weights())
