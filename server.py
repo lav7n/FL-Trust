@@ -91,7 +91,7 @@ class Server:
             root_client.train() 
 
             client_models = []
-            for client_id in tqdm(range(len(clients)), bar_format='{l_bar}{bar} [ {n_fmt}/{total_fmt} ]'):
+            for client_id in range(len(clients)):
                 client = clients[client_id]
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
