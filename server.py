@@ -5,7 +5,6 @@ import shutil
 import matplotlib.pyplot as plt
 import os
 from sklearn.metrics.pairwise import cosine_similarity
-from dataloaders import save_histogram_of_weights
 from tqdm import tqdm
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -101,7 +100,7 @@ class Server:
                 client.update_model_weights(self.model.state_dict())
                 client.train(num_epochs=num_epochs)
                 client_models.append(client.get_model_weights())
-                save_histogram_of_weights(client.get_model_weights(), rnd, client_id)
+                # save_histogram_of_weights(client.get_model_weights(), rnd, client_id)
 
                 # Test client accuracy after local training
                 # client_accuracy = self.test_client_locally(client, client.train_loader)
@@ -145,7 +144,7 @@ class Server:
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
-                data = data.view(data.size(0), 1, 28, 28)
+                data = data.view(data.size(0), 3, 32, 32) 
                 output = self.model(data)
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
@@ -158,7 +157,7 @@ class Server:
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
-                data = data.view(data.size(0), 1, 28, 28)
+                data = data.view(data.size(0), 3, 32, 32) 
                 output = client.model(data)
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()

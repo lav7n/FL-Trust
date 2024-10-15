@@ -23,7 +23,7 @@ class Client:
             for data, target in self.train_loader:
                 # Move data and target to the appropriate device
                 data, target = data.to(device), target.to(device)
-                data = data.view(data.size(0), 1, 28, 28)
+                data = data.view(data.size(0), 3, 32, 32) 
                 optimizer.zero_grad()
                 output = self.model(data)
                 loss = self.criterion(output, target)

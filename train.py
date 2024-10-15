@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from dataloaders import ClientDataLoader, RootClientDataLoader, TestDataLoader
 from server import Server
 from client import Client
-from model import LeNet
+from model import ResNet
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Federated Learning with FLTrust an
 parser.add_argument('--num_clients', type=int, default=100, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=25, help='Number of malicious clients')
-parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs for each client')
+parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
@@ -33,7 +33,7 @@ parser.add_argument('--printmetrics', action='store_true', help='Print metrics o
 args = parser.parse_args()
 
 
-model = LeNet().to(device)
+model = ResNet().to(device)
 criterion = nn.CrossEntropyLoss()
 
 test = TestDataLoader(batch_size=64)

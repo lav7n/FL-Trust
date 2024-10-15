@@ -2,9 +2,6 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import os
-import struct
-import matplotlib.pyplot as plt
-from datetime import datetime
 
 class RootClientDataLoader:
     def __init__(self, batch_size=64):
@@ -75,30 +72,6 @@ def load_npy_data(client_dir):
     y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
     return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)
 
-# Function to save histogram of model weights for each communication round
-def save_histogram_of_weights(model_state_dict, round_num, clientid, folder='HistoRounds'):
-    # Create folder if it doesn't exist
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    
-    # Flatten all model weights into a single list
-    all_weights = np.concatenate([v.cpu().numpy().flatten() for v in model_state_dict.values()])
-    # print(all_weights)
-    # Dynamically calculate the number of bins based on the range of weight values
-    min_weight, max_weight = np.min(all_weights), np.max(all_weights)
-    # bins = np.linspace(min_weight, max_weight, num=50)  # Create 50 bins between min and max values
-    bins = np.linspace(-0.1, 0.1, num=50)
-    # Create a histogram
-    plt.figure(figsize=(10, 6))
-    plt.hist(all_weights, bins=bins, alpha=0.75, color='blue', edgecolor='black')
-    plt.title(f'Histogram of Model Weights - Round {round_num + 1}')
-    plt.xlabel('Weight Value')
-    plt.ylabel('Frequency')
-
-    # Save the figure
-    hist_path = os.path.join(folder, f'weights_histogram_round_{round_num + 1}_Client_{clientid+1}.png')
-    plt.savefig(hist_path)
-    plt.close()
 
 def save_matrices(A, B, C, attack_type, num_clients, num_malicious):
     """
