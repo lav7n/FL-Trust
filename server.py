@@ -106,8 +106,8 @@ class Server:
                 # Test client accuracy after local training
                 # client_accuracy = self.test_client_locally(client, client.train_loader)
                 # print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
-                # client_accuracy2 = self.test_client_locally(client, test_loader)
-                # print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
+                client_accuracy2 = self.test_client_locally(client, test_loader)
+                print(f"Client {client_id + 1} - Accuracy on Test: {client_accuracy2:.2f}%")
 
                 if self.printmetrics:
                     client_accuracy = self.test_client_locally(client, client.train_loader)
