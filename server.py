@@ -122,7 +122,8 @@ class Server:
             # Test global model accuracy
             global_accuracy = self.test_global(test_loader)
             accuracies.append(global_accuracy)
-            tqdm.write(f"Raw client accuracies average: {sum(client_accuracies)/len(client_accuracies):.2f}%")
+            if self.printmetrics:
+                tqdm.write(f"Raw client accuracies average: {sum(client_accuracies)/len(client_accuracies):.2f}%")
             tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
 
         return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix, similarity_matrix
