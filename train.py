@@ -22,7 +22,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
 
 parser = argparse.ArgumentParser(description='Federated Learning with FLTrust and configurable parameters')
-parser.add_argument('--num_clients', type=int, default=100, help='Number of clients')
+parser.add_argument('--num_clients', type=int, default=1, help='Number of clients')
 parser.add_argument('--num_rounds', type=int, default=20, help='Number of training rounds')
 parser.add_argument('--num_malicious', type=int, default=0, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=10, help='Number of epochs for each client')
@@ -46,7 +46,7 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
                                         noise_stddev=args.noise_stddev)
 client_datasets = client_data_loader.get_client_datasets()
 
-default_lr = 0.001 
+default_lr = 0.00001
 malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr  
 
 # Ensure client_datasets contains the expected number of clients
