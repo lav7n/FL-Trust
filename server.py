@@ -95,6 +95,7 @@ class Server:
                 root_client.train() 
 
             client_models = []
+            client_accuracies = []
             for client_id in range(len(clients)):
                 client = clients[client_id]
                 client.update_model_weights(self.model.state_dict())
@@ -111,6 +112,7 @@ class Server:
                 if self.printmetrics:
                     client_accuracy = self.test_client_locally(client, client.train_loader)
                     print(f"Client {client_id + 1} - Accuracy: {client_accuracy:.2f}%")
+                    client_accuracies.append(client_accuracy)
 
             if FLTrust and root_client: #Testing Root Client
                 self.FLTrust(root_client, client_models)
@@ -120,6 +122,7 @@ class Server:
             # Test global model accuracy
             global_accuracy = self.test_global(test_loader)
             accuracies.append(global_accuracy)
+            tqdm.write(f"Raw client accuracies average: {sum(client_accuracies)/len(client_accuracies):.2f}%")
             tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
 
         return accuracies, root_client_accuracies, root_on_client_matrix, client_on_root_matrix, similarity_matrix
