@@ -90,8 +90,9 @@ class Server:
             tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
 
             # TRAIN ALL CLIENTS AND ROOT
-            root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
-            root_client.train() 
+            if FLTrust:
+                root_client.update_model_weights(self.model.state_dict())  # Set global weights before Training
+                root_client.train() 
 
             client_models = []
             for client_id in range(len(clients)):
