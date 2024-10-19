@@ -90,7 +90,7 @@ class Server:
 
                 if self.print_metrics:
                     client_accuracy = self.test_client_locally(client, test_loader)
-                    print(f"Client Accuracy on Test: {client_accuracy:.2f}%")
+                    print(f"Client {client} Accuracy on Test: {client_accuracy:.2f}%")
                     client_accuracies.append(client_accuracy)
 
             if FLTrust and root_client:
@@ -100,8 +100,7 @@ class Server:
 
             global_accuracy = self.test_global(test_loader)
             accuracies.append(global_accuracy)
-            if self.print_metrics:
-                tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
+            tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
 
             if FLTrust and root_client:
                 root_client_accuracy = self.test_client_locally(root_client, test_loader)
