@@ -47,7 +47,8 @@ client_data_loader = ClientDataLoader(num_clients=args.num_clients,
                                         noise_stddev=args.noise_stddev)
 client_datasets = client_data_loader.get_client_datasets()
 
-default_lr = 0.0001
+default_lr = args.lr
+print(f"Default learning rate: {default_lr}")
 malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr  
 
 # Ensure client_datasets contains the expected number of clients
