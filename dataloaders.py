@@ -68,6 +68,11 @@ class ClientDataLoader:
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),  # Normalize data
         ])
 
+        Transform = transforms.Compose([
+                                        transforms.Resize((224, 224)),
+                                        transforms.ToTensor(),
+                                    ])
+
         for client_id in range(self.num_clients):
             client_dir = f'dataset/client_{client_id + 1}'
             x_data, y_data = load_npy_data(client_dir)
@@ -81,7 +86,7 @@ class ClientDataLoader:
             augmented_data = []
             for i in range(x_data.shape[0]):
                 img = x_data[i]  # Tensor (C, H, W)
-                augmented_img = transform_augment(img)  # Apply augmentations
+                augmented_img = Transform(img)  # Apply augmentations
                 augmented_data.append(augmented_img)
             x_data = torch.stack(augmented_data)  # Stack the augmented data back
             
