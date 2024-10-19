@@ -6,37 +6,69 @@ import torchvision
 from torchvision import transforms
 
 class DataLoaderManager:
-    def __init__(self, batch_size, num_clients, root_dataset_fraction):
+    def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid'):
         self.batch_size = batch_size
         self.num_clients = num_clients
         
-        # Define transformations
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),  # Normalize to [-1, 1]
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
         
-        # Load the CIFAR-10 dataset
         self.train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=self.transform)
         self.test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=self.transform)
 
-        # Create root dataset (10% of training set)
         self.root_size = int(len(self.train_set) * root_dataset_fraction)
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
         self.root_dataset = Subset(self.train_set, self.root_indices)
 
-        # Create the remaining dataset for IID split
+        self.class_counts = torch.zeros(self.num_clients, 10)
+
+        if distribution == 'iid':
+            self.iid_split()
+        else:
+            self.non_iid_split()
+
+    def iid_split(self):
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
         self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
-
-        # Split the remaining dataset into IID partitions for clients
-        self.client_datasets = []
         client_size = len(self.remaining_dataset) // self.num_clients
-
+        self.client_datasets = []
+        
         for i in range(self.num_clients):
             start_idx = i * client_size
             end_idx = start_idx + client_size
-            self.client_datasets.append(Subset(self.remaining_dataset, range(start_idx, end_idx)))
+            client_indices = range(start_idx, end_idx)
+            self.client_datasets.append(Subset(self.remaining_dataset, client_indices))
+            self.update_class_counts(client_indices, i)
+        self.print_distribution_matrix()
+
+    def non_iid_split(self):
+        targets = torch.tensor(self.train_set.targets)
+        indices_by_class = [torch.where(targets == i)[0] for i in range(10)]
+        
+        self.client_datasets = [[] for _ in range(self.num_clients)]
+        for i, class_indices in enumerate(indices_by_class):
+            split_sizes = torch.randint(low=0, high=len(class_indices) // self.num_clients * 2, size=(self.num_clients,))
+            split_sizes = torch.min(split_sizes, torch.tensor(len(class_indices)))
+            split_sizes[-1] = len(class_indices) - split_sizes[:-1].sum()
+            
+            splits = torch.split(class_indices, split_sizes.tolist())
+            for j, split in enumerate(splits):
+                self.client_datasets[j].extend(split.tolist())
+                self.class_counts[j, i] += len(split)
+        
+        self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
+        self.print_distribution_matrix()
+
+    def update_class_counts(self, client_indices, client_id):
+        targets = torch.tensor([self.train_set.targets[i] for i in client_indices])
+        class_distribution = torch.bincount(targets, minlength=10)
+        self.class_counts[client_id] = class_distribution
+
+    def print_distribution_matrix(self):
+        print("Distribution matrix (clients x classes):")
+        print(self.class_counts)
 
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
