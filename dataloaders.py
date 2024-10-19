@@ -4,6 +4,7 @@ import numpy as np
 import os
 import torchvision
 from torchvision import transforms
+import random
 
 class DataLoaderManager:
     def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid'):
