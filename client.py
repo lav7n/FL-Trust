@@ -14,7 +14,7 @@ class Client:
         self.train_loader = client_loader
         self.num_epochs = num_epochs
         self.lr = lr
-
+    
     def train(self, num_epochs=2):
         optimizer = optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
         self.model.train()
