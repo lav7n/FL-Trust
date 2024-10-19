@@ -13,6 +13,15 @@ class RootClientDataLoader:
         """Returns the DataLoader for the root client."""
         return self.train_loader
 
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, TensorDataset
+import torch
+
+def load_npy_data(client_dir):
+    x_data = torch.from_numpy(np.load(f"{client_dir}/x_data.npy"))
+    y_data = torch.from_numpy(np.load(f"{client_dir}/y_data.npy"))
+    return x_data, y_data
+
 class ClientDataLoader:
     def __init__(self, num_clients, num_malicious=0, batch_size=64, attack_type=None, noise_stddev=0):
         self.num_clients = num_clients
@@ -25,9 +34,25 @@ class ClientDataLoader:
         self._load_client_data()
 
     def _load_client_data(self):
+        # Define augmentations (transformations) for training data
+        transform_augment = transforms.Compose([
+            transforms.RandomHorizontalFlip(),       # Flip horizontally
+            transforms.RandomCrop(32, padding=4),    # Crop and pad images to maintain size
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Adjust color
+            transforms.ToTensor(),                  # Convert to Tensor
+        ])
+
         for client_id in range(self.num_clients):
             client_dir = f'dataset/client_{client_id + 1}'
             x_data, y_data = load_npy_data(client_dir)
+            x_data = x_data / 255.0  # Normalize pixel values between 0 and 1
+            
+            # Apply augmentations to benign clients
+            augmented_data = []
+            for i in range(x_data.shape[0]):
+                augmented_img = transform_augment(x_data[i].permute(1, 2, 0))  # Apply aug and reorder dims
+                augmented_data.append(augmented_img)
+            x_data = torch.stack(augmented_data)  # Stack the augmented data back
             
             # Apply attacks to malicious clients
             if client_id in self.malicious_clients:
@@ -46,6 +71,7 @@ class ClientDataLoader:
 
     def get_malicious_clients(self):
         return list(self.malicious_clients)
+
 
 class TestDataLoader:
     def __init__(self, batch_size=64):
