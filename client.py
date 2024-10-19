@@ -15,8 +15,8 @@ class Client:
         self.lr = lr
     
     def train(self, num_epochs=2):
-        optimizer = optim.Adam(self.model.parameters(), lr=self.lr)  # Adam for adaptive learning rate
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)  # Reduce LR over time
+        optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
         self.model.train()
 
         for _ in range(num_epochs):
@@ -24,7 +24,6 @@ class Client:
             correct, total = 0, 0
             for data, target in self.train_loader:
                 data, target = data.to(device), target.to(device)
-                data = data.view(data.size(0), 3, 32, 32)
                 
                 optimizer.zero_grad()
                 output = self.model(data)
@@ -37,7 +36,7 @@ class Client:
                 correct += (predicted == target).sum().item()
                 total += target.size(0)
 
-            scheduler.step()  # Adjust learning rate
+            scheduler.step()
 
             print(f'Epoch Loss: {running_loss / len(self.train_loader):.4f}, Accuracy: {100 * correct / total:.2f}%')
 

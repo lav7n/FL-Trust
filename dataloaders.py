@@ -48,6 +48,99 @@ def load_npy_data(client_dir):
     y_data = torch.from_numpy(np.load(f"{client_dir}/y_data.npy"))
     return x_data, y_data
 
+# class ClientDataLoader:
+#     def __init__(self, num_clients, num_malicious=0, batch_size=64, attack_type=None, noise_stddev=0):
+#         self.num_clients = num_clients
+#         self.num_malicious = num_malicious
+#         self.batch_size = batch_size
+#         self.attack_type = attack_type
+#         self.noise_stddev = noise_stddev
+#         self.client_datasets = []
+#         self.malicious_clients = set(np.random.choice(range(num_clients), num_malicious, replace=False))
+#         self._load_client_data()
+
+#     def _load_client_data(self):
+#         # Define augmentations (transformations) for training data using tensor-based transforms
+#         transform_augment = transforms.Compose([
+#             transforms.RandomHorizontalFlip(),
+#             transforms.RandomCrop(32, padding=4),
+#             transforms.ConvertImageDtype(torch.float),  # Ensure it's of type float
+#             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),  # Normalize data
+#         ])
+
+#         Transform = transforms.Compose([
+#                                         transforms.Resize((224, 224)),
+#                                         transforms.ToTensor(),
+#                                     ])
+
+#         for client_id in range(self.num_clients):
+#             client_dir = f'dataset/client_{client_id + 1}'
+#             x_data, y_data = load_npy_data(client_dir)
+#             x_data = x_data / 255.0  # Normalize pixel values between 0 and 1
+            
+#             # Ensure x_data has the correct shape (N, 3, 32, 32)
+#             # print(f"Client {client_id + 1} data shape: {x_data.shape}")
+#             x_data = x_data.permute(0, 3, 1, 2)  # Convert (N, H, W, C) -> (N, C, H, W)
+#             # print(f"Client {client_id + 1} data shape after permutation: {x_data.shape}")
+
+#             augmented_data = []
+#             for i in range(x_data.shape[0]):
+#                 img = x_data[i]  # Tensor (C, H, W)
+#                 augmented_img = Transform(img)  # Apply augmentations
+#                 augmented_data.append(augmented_img)
+#             x_data = torch.stack(augmented_data)  # Stack the augmented data back
+            
+#             # Apply attacks to malicious clients
+#             if client_id in self.malicious_clients:
+#                 if self.attack_type == 'label_flipping':
+#                     y_data[:] = 9  # Flip all labels to class 9
+#                 elif self.attack_type == 'gaussian_noise':
+#                     noise = torch.normal(mean=0, std=self.noise_stddev, size=x_data.size())
+#                     print(f"Adding Gaussian noise with stddev {self.noise_stddev}")
+#                     x_data = x_data + noise
+
+#             train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True, drop_last=True)
+#             self.client_datasets.append(train_loader)
+
+#     def get_client_datasets(self):
+#         return self.client_datasets
+
+#     def get_malicious_clients(self):
+#         return list(self.malicious_clients)
+
+# class TestDataLoader:
+#     def __init__(self, batch_size=64):
+#         self.batch_size = batch_size
+#         self.test_loader = None
+#         self._load_test_data()
+
+#     def _load_test_data(self):
+#         test_dir = 'dataset/test'
+#         x_test = np.load(os.path.join(test_dir, 'x_test.npy'))
+#         y_test = np.load(os.path.join(test_dir, 'y_test.npy'))
+
+#         x_test_tensor = torch.tensor(x_test, dtype=torch.float32)
+#         y_test_tensor = torch.tensor(y_test, dtype=torch.long)
+
+#         self.test_loader = DataLoader(TensorDataset(x_test_tensor, y_test_tensor), batch_size=self.batch_size, shuffle=False)
+
+#     def get_test_loader(self):
+#         return self.test_loader
+
+import os
+import numpy as np
+import torch
+import torchvision
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, Subset, TensorDataset
+
+# Hyperparameters
+BatchSize = 64
+NumClients = 5
+RootDatasetFraction = 0.1
+
+import torchvision.transforms as transforms
+
 class ClientDataLoader:
     def __init__(self, num_clients, num_malicious=0, batch_size=64, attack_type=None, noise_stddev=0):
         self.num_clients = num_clients
@@ -60,53 +153,52 @@ class ClientDataLoader:
         self._load_client_data()
 
     def _load_client_data(self):
-        # Define augmentations (transformations) for training data using tensor-based transforms
         transform_augment = transforms.Compose([
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, padding=4),
-            transforms.ConvertImageDtype(torch.float),  # Ensure it's of type float
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),  # Normalize data
+            transforms.ToTensor(),  # Ensure images are converted to Tensors
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
 
-        Transform = transforms.Compose([
-                                        transforms.Resize((224, 224)),
-                                        transforms.ToTensor(),
-                                    ])
+        # Load the CIFAR-10 dataset
+        train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_augment)
+        root_size = int(len(train_set) * RootDatasetFraction)
+        root_indices = torch.randperm(len(train_set))[:root_size]
+        root_dataset = Subset(train_set, root_indices)
 
+        # Remaining dataset for IID split
+        remaining_indices = list(set(range(len(train_set))) - set(root_indices))
+        remaining_dataset = Subset(train_set, remaining_indices)
+
+        # Split into IID partitions for clients
+        client_size = len(remaining_dataset) // self.num_clients
         for client_id in range(self.num_clients):
-            client_dir = f'dataset/client_{client_id + 1}'
-            x_data, y_data = load_npy_data(client_dir)
-            x_data = x_data / 255.0  # Normalize pixel values between 0 and 1
-            
-            # Ensure x_data has the correct shape (N, 3, 32, 32)
-            # print(f"Client {client_id + 1} data shape: {x_data.shape}")
-            x_data = x_data.permute(0, 3, 1, 2)  # Convert (N, H, W, C) -> (N, C, H, W)
-            # print(f"Client {client_id + 1} data shape after permutation: {x_data.shape}")
+            start_idx = client_id * client_size
+            end_idx = start_idx + client_size
+            client_subset = Subset(remaining_dataset, range(start_idx, end_idx))
 
-            augmented_data = []
-            for i in range(x_data.shape[0]):
-                img = x_data[i]  # Tensor (C, H, W)
-                augmented_img = Transform(img)  # Apply augmentations
-                augmented_data.append(augmented_img)
-            x_data = torch.stack(augmented_data)  # Stack the augmented data back
-            
-            # Apply attacks to malicious clients
+            # Create a DataLoader directly from the client subset
+            train_loader = DataLoader(client_subset, batch_size=self.batch_size, shuffle=True, drop_last=True)
+            self.client_datasets.append(train_loader)
+
+            # Apply attacks to malicious clients after creating the loader
             if client_id in self.malicious_clients:
                 if self.attack_type == 'label_flipping':
-                    y_data[:] = 9  # Flip all labels to class 9
+                    # Iterate over the dataset to flip labels (could also modify the DataLoader later)
+                    for _, (x, y) in enumerate(train_loader):
+                        y[:] = 9  # Flip all labels to class 9
                 elif self.attack_type == 'gaussian_noise':
-                    noise = torch.normal(mean=0, std=self.noise_stddev, size=x_data.size())
-                    print(f"Adding Gaussian noise with stddev {self.noise_stddev}")
-                    x_data = x_data + noise
-
-            train_loader = DataLoader(TensorDataset(x_data, y_data), batch_size=self.batch_size, shuffle=True, drop_last=True)
-            self.client_datasets.append(train_loader)
+                    # Add noise to images in the loader
+                    for idx, (x, y) in enumerate(train_loader):
+                        noise = torch.normal(mean=0, std=self.noise_stddev, size=x.size())
+                        x += noise
 
     def get_client_datasets(self):
         return self.client_datasets
 
     def get_malicious_clients(self):
         return list(self.malicious_clients)
+
 
 class TestDataLoader:
     def __init__(self, batch_size=64):
@@ -115,17 +207,18 @@ class TestDataLoader:
         self._load_test_data()
 
     def _load_test_data(self):
-        test_dir = 'dataset/test'
-        x_test = np.load(os.path.join(test_dir, 'x_test.npy'))
-        y_test = np.load(os.path.join(test_dir, 'y_test.npy'))
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+        test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+        x_test = torch.stack([test_set[i][0] for i in range(len(test_set))])
+        y_test = torch.tensor([test_set[i][1] for i in range(len(test_set))])
 
-        x_test_tensor = torch.tensor(x_test, dtype=torch.float32)
-        y_test_tensor = torch.tensor(y_test, dtype=torch.long)
-
-        self.test_loader = DataLoader(TensorDataset(x_test_tensor, y_test_tensor), batch_size=self.batch_size, shuffle=False)
+        self.test_loader = DataLoader(TensorDataset(x_test, y_test), batch_size=self.batch_size, shuffle=False)
 
     def get_test_loader(self):
         return self.test_loader
+
 
 
 def load_npy_data(client_dir):
