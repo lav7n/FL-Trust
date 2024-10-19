@@ -50,6 +50,8 @@ class DataLoaderManager:
         self.DistributionMatrix()
 
     def NonIID(self):
+        np.random.seed(42)
+        random.seed(42)
         total_samples = len(self.train_set)
         indices = np.arange(total_samples)
         np.random.shuffle(indices)
