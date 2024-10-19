@@ -22,12 +22,13 @@ parser.add_argument('--attack_type', type=str, default='label_flipping', help='T
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate for clients')
+parser.add_argument('--distribution', type=str, default='iid', help='Data distribution among clients')
 args = parser.parse_args()
 
 model = ResNetCIFAR().to(device)
 criterion = nn.CrossEntropyLoss()
 
-data_loader_manager = DataLoaderManager(batch_size=64, num_clients=args.num_clients, root_dataset_fraction=0.1)
+data_loader_manager = DataLoaderManager(batch_size=64, num_clients=args.num_clients, root_dataset_fraction=0.1, distribution=args.distribution)
 test_loader = data_loader_manager.get_test_loader()
 client_loaders = data_loader_manager.get_client_loaders()
 

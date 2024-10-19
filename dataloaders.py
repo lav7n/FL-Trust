@@ -9,6 +9,7 @@ class DataLoaderManager:
     def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid'):
         self.batch_size = batch_size
         self.num_clients = num_clients
+        self.distribution = distribution
         
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -22,14 +23,17 @@ class DataLoaderManager:
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
         self.root_dataset = Subset(self.train_set, self.root_indices)
 
-        self.class_counts = torch.zeros(self.num_clients, 10)
+        self.class_counts = torch.zeros(self.num_clients, 10)  # Clients' class distribution matrix
+        self.root_class_counts = torch.zeros(1, 10)  # Root dataset class distribution matrix
 
-        if distribution == 'iid':
-            self.iid_split()
+        self.CountClasses(self.root_indices, is_root=True)
+
+        if self.distribution == 'iid':
+            self.IID()
         else:
-            self.non_iid_split()
+            self.NonIID()
 
-    def iid_split(self):
+    def IID(self):
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
         self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
         client_size = len(self.remaining_dataset) // self.num_clients
@@ -40,10 +44,11 @@ class DataLoaderManager:
             end_idx = start_idx + client_size
             client_indices = range(start_idx, end_idx)
             self.client_datasets.append(Subset(self.remaining_dataset, client_indices))
-            self.update_class_counts(client_indices, i)
-        self.print_distribution_matrix()
+            self.CountClasses(client_indices, i)
+        
+        self.DistributionMatrix()
 
-    def non_iid_split(self):
+    def NonIID(self):
         targets = torch.tensor(self.train_set.targets)
         indices_by_class = [torch.where(targets == i)[0] for i in range(10)]
         
@@ -59,16 +64,22 @@ class DataLoaderManager:
                 self.class_counts[j, i] += len(split)
         
         self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
-        self.print_distribution_matrix()
+        self.DistributionMatrix()
 
-    def update_class_counts(self, client_indices, client_id):
-        targets = torch.tensor([self.train_set.targets[i] for i in client_indices])
+    def CountClasses(self, indices, client_id=None, is_root=False):
+        targets = torch.tensor([self.train_set.targets[i] for i in indices])
         class_distribution = torch.bincount(targets, minlength=10)
-        self.class_counts[client_id] = class_distribution
+        
+        if is_root:
+            self.root_class_counts[0] = class_distribution
+        else:
+            self.class_counts[client_id] = class_distribution
 
-    def print_distribution_matrix(self):
-        print("Distribution matrix (clients x classes):")
+    def DistributionMatrix(self):
+        print("Clients' distribution matrix (clients x classes):")
         print(self.class_counts)
+        print("Root dataset distribution matrix (root x classes):")
+        print(self.root_class_counts)
 
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
@@ -79,10 +90,8 @@ class DataLoaderManager:
     def get_client_loaders(self):
         return [DataLoader(client_dataset, batch_size=self.batch_size, shuffle=True) for client_dataset in self.client_datasets]
 
-def load_npy_data(client_dir):
-    x_data = np.load(os.path.join(client_dir, 'x_data.npy'))
-    y_data = np.load(os.path.join(client_dir, 'y_data.npy'))
-    return torch.tensor(x_data, dtype=torch.float32), torch.tensor(y_data, dtype=torch.long)
+
+
 
 
 def save_matrices(A, B, C, attack_type, num_clients, num_malicious):
