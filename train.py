@@ -1,23 +1,14 @@
-import copy
-import torch
-import torch.optim as optim
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-from dataloaders import ClientDataLoader, RootClientDataLoader, TestDataLoader
-from server import Server
-from client import Client
-from model import ResNet
-import numpy as np
-import argparse
-import matplotlib.pyplot as plt
 import os
 import shutil
-from datetime import datetime
-from dataloaders import save_matrices
+import argparse
+import torch
+import torch.nn as nn
+from model import ResNetCIFAR  # Ensure you import the correct ResNet model
+from dataloaders import DataLoaderManager
+from server import Server
+from client import Client
+from tqdm import tqdm
 
-if os.path.exists('HistoRounds'):
-    shutil.rmtree('HistoRounds')
-os.makedirs('HistoRounds')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {device}")
 
@@ -33,71 +24,51 @@ parser.add_argument('--printmetrics', action='store_true', help='Print metrics o
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate for clients')
 args = parser.parse_args()
 
-
-model = ResNet().to(device)
+model = ResNetCIFAR().to(device)
 criterion = nn.CrossEntropyLoss()
 
-test = TestDataLoader(batch_size=64)
-test_loader = test.get_test_loader()
+data_loader_manager = DataLoaderManager(batch_size=64, num_clients=args.num_clients, root_dataset_fraction=0.1)
+test_loader = data_loader_manager.get_test_loader()
+client_loaders = data_loader_manager.get_client_loaders()
 
-client_data_loader = ClientDataLoader(num_clients=args.num_clients,
-                                        num_malicious=args.num_malicious, 
-                                        batch_size=64, 
-                                        attack_type=args.attack_type, 
-                                        noise_stddev=args.noise_stddev)
-client_datasets = client_data_loader.get_client_datasets()
 
 default_lr = args.lr
-print(f"Default learning rate: {default_lr}")
-malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr  
-
-# Ensure client_datasets contains the expected number of clients
-print(f"Total number of clients: {len(client_datasets)}")
-print(f"Number of malicious clients: {args.num_malicious}")
+malicious_lr = 1 if args.attack_type == 'lr_poison' else default_lr
 
 clients = [
-    Client(
-        model=model,
-        criterion=criterion,
-        client_loader=train_loader,
-        num_epochs=args.num_epochs,
-        lr=(malicious_lr if i < args.num_malicious else default_lr)
-    )
-    for i, train_loader in enumerate(client_datasets)
+    Client(client_loader=train_loader, num_epochs=args.num_epochs, lr=(malicious_lr if i < args.num_malicious else default_lr))
+    for i, train_loader in enumerate(client_loaders)
 ]
 
 print(f"Number of clients created: {len(clients)}")
+print(f"Total number of clients: {len(client_loaders)}")
+print(f"Number of malicious clients: {args.num_malicious}")
 
-root_loader = RootClientDataLoader(batch_size=64)
-# root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
-root_client = Client(model=model, criterion=criterion, client_loader=test_loader, num_epochs=args.num_epochs)
-server = Server(model, criterion, num_clients=args.num_clients, alpha=1, printmetrics=args.printmetrics)
+root_client = Client(client_loader=data_loader_manager.get_root_loader(), num_epochs=args.num_epochs, lr=default_lr)
+server = Server(model=model, criterion=criterion, num_clients=args.num_clients, alpha=1, print_metrics=args.printmetrics)
 
 print("FLTrust: ", args.FLTrust)
 if args.FLTrust:
     print("FLTrust Enabled!")
-    accuracies, root_client_accuracies,A,B,C = server.Train(
+    accuracies, root_client_accuracies = server.train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=True,
-        root_client=root_client,
-        root_client_only=False
+        root_client=root_client
     )
 else:
-    print("FedAvg")
-    accuracies = server.Train(
+    print("FedAvg Enabled!")
+    accuracies = server.train(
         clients, test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=False,
-        root_client=None,
-        root_client_only=False
+        root_client=None
     )
     root_client_accuracies = None
 
 print("Global Model Accuracies across rounds:", accuracies)
 
-
-if args.FLTrust:
-    save_matrices(A, B, C, args.attack_type, args.num_clients, args.num_malicious)
+# if args.FLTrust:
+#     save_matrices(A, B, C, args.attack_type, args.num_clients, args.num_malicious)
