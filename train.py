@@ -30,6 +30,7 @@ parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
 parser.add_argument('--attack_type', type=str, default='label_flipping', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
+parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate for clients')
 args = parser.parse_args()
 
 
