@@ -2,12 +2,14 @@ import copy
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from model import ResNetCIFAR
+from tqdm import tqdm
+import torch.nn as nn
 
-# Detect if GPU is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Client:
-    def __init__(self, client_loader, num_epochs=NumEpochs, lr=LearningRate):
+    def __init__(self, client_loader, num_epochs=5, lr=0.001):
         self.model = ResNetCIFAR().to(device)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
