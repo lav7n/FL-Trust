@@ -83,7 +83,7 @@ class Server:
 
             client_models = []
             client_accuracies = []
-            for client in clients:
+            for client in tqdm(clients):
                 client.update_model_weights(self.model.state_dict())
                 client.train()
                 client_models.append(client.get_model_weights())
