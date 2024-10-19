@@ -66,9 +66,9 @@ clients = [
 
 print(f"Number of clients created: {len(clients)}")
 
-# root_loader = RootClientDataLoader(batch_size=64)
-root_loader = test.get_test_loader()
-root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
+root_loader = RootClientDataLoader(batch_size=64)
+# root_client = Client(model=model, criterion=criterion, client_loader=root_loader.get_dataloader(), num_epochs=args.num_epochs)
+root_client = Client(model=model, criterion=criterion, client_loader=test_loader, num_epochs=args.num_epochs)
 server = Server(model, criterion, num_clients=args.num_clients, alpha=1, printmetrics=args.printmetrics)
 
 print("FLTrust: ", args.FLTrust)
