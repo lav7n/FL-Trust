@@ -22,7 +22,7 @@ class Client:
         for epoch in range(self.num_epochs):
             running_loss = 0.0
             correct, total = 0, 0
-            for data, target in tqdm(self.train_loader, desc=f'Training Epoch {epoch + 1}/{self.num_epochs}', leave=False):
+            for data, target in self.train_loader:
                 data, target = data.to(device), target.to(device)
 
                 self.optimizer.zero_grad()
@@ -38,7 +38,7 @@ class Client:
 
             self.scheduler.step()  # Adjust learning rate
 
-            print(f'Epoch {epoch + 1} Loss: {running_loss / len(self.train_loader):.4f}, Accuracy: {100 * correct / total:.2f}%')
+            # print(f'Epoch {epoch + 1} Loss: {running_loss / len(self.train_loader):.4f}, Accuracy: {100 * correct / total:.2f}%')
 
     def evaluate(self, test_loader):
         self.model.eval()
