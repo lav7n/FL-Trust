@@ -49,33 +49,39 @@ class DataLoaderManager:
         self.DistributionMatrix()
 
     def NonIID(self):
+        total_samples = len(self.train_set)
+        indices = np.arange(total_samples)
+        np.random.shuffle(indices)
+        
         targets = torch.tensor(self.train_set.targets)
-        indices_by_class = [torch.where(targets == i)[0] for i in range(10)]
-        
+        classes = np.arange(10)  # CIFAR-10 has 10 classes
+
         self.client_datasets = [[] for _ in range(self.num_clients)]
-        
-        for i, class_indices in enumerate(indices_by_class):
-            # Make sure the split sizes are non-negative and smaller than the number of available samples
-            split_sizes = torch.randint(low=0, high=len(class_indices) // self.num_clients + 1, size=(self.num_clients,))
-            split_sizes[-1] = len(class_indices) - split_sizes[:-1].sum()  # Adjust the last size to cover the remaining samples
+
+        for i in range(self.num_clients):
+            # Random number of samples for each client
+            num_samples = random.randint(total_samples // (self.num_clients * 2), total_samples // self.num_clients)
+            selected_classes = np.random.choice(classes, size=random.randint(1, len(classes)), replace=False)
             
-            # Ensure the last split is non-negative by re-adjusting if necessary
-            if split_sizes[-1] < 0:
-                split_sizes[-1] = 0
-            
-            # Now perform the split
-            splits = torch.split(class_indices, split_sizes.tolist())
-            
-            for j, split in enumerate(splits):
-                self.client_datasets[j].extend(split.tolist())
-                self.class_counts[j, i] += len(split)
-        
+            for cls in selected_classes:
+                # Get the indices of the current class
+                class_indices = indices[targets[indices] == cls]
+                # Random number of samples for this class
+                num_class_samples = random.randint(1, num_samples // len(selected_classes))
+                # Choose a subset of indices from the current class
+                chosen_indices = np.random.choice(class_indices, size=min(num_class_samples, len(class_indices)), replace=False)
+                # Add the chosen indices to the client's dataset
+                self.client_datasets[i].extend(chosen_indices.tolist())
+                # Update class count for this client
+                self.class_counts[i, cls] += len(chosen_indices)
+
         self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
         self.DistributionMatrix()
 
+
     def CountClasses(self, indices, client_id=None, is_root=False):
         targets = torch.tensor([self.train_set.targets[i] for i in indices])
-        class_distribution = torch.bincount(targets, minlength=10)
+        class_distribution = torch.bincount(targets, minlength=10).int()
         
         if is_root:
             self.root_class_counts[0] = class_distribution
