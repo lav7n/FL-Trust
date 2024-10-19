@@ -53,18 +53,25 @@ class DataLoaderManager:
         indices_by_class = [torch.where(targets == i)[0] for i in range(10)]
         
         self.client_datasets = [[] for _ in range(self.num_clients)]
+        
         for i, class_indices in enumerate(indices_by_class):
-            split_sizes = torch.randint(low=0, high=len(class_indices) // self.num_clients * 2, size=(self.num_clients,))
-            split_sizes = torch.min(split_sizes, torch.tensor(len(class_indices)))
-            split_sizes[-1] = len(class_indices) - split_sizes[:-1].sum()
+            # Make sure the split sizes are non-negative and smaller than the number of available samples
+            split_sizes = torch.randint(low=0, high=len(class_indices) // self.num_clients + 1, size=(self.num_clients,))
+            split_sizes[-1] = len(class_indices) - split_sizes[:-1].sum()  # Adjust the last size to cover the remaining samples
             
+            # Ensure the last split is non-negative by re-adjusting if necessary
+            if split_sizes[-1] < 0:
+                split_sizes[-1] = 0
+            
+            # Now perform the split
             splits = torch.split(class_indices, split_sizes.tolist())
+            
             for j, split in enumerate(splits):
                 self.client_datasets[j].extend(split.tolist())
                 self.class_counts[j, i] += len(split)
         
         self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
-        self.DistributionMatrix()
+        self.print_distribution_matrices()
 
     def CountClasses(self, indices, client_id=None, is_root=False):
         targets = torch.tensor([self.train_set.targets[i] for i in indices])
