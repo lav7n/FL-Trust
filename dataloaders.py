@@ -71,7 +71,7 @@ class DataLoaderManager:
                 self.class_counts[j, i] += len(split)
         
         self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
-        self.print_distribution_matrices()
+        self.DistributionMatrix()
 
     def CountClasses(self, indices, client_id=None, is_root=False):
         targets = torch.tensor([self.train_set.targets[i] for i in indices])
