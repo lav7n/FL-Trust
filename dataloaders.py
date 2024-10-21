@@ -7,9 +7,12 @@ from torchvision import transforms
 import random
 
 class DataLoaderManager:
-    def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid'):
+    def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
         self.num_clients = num_clients
+        self.num_malicious = num_malicious
+        self.attack_type = attack_type
+        self.noise_stddev = noise_stddev
         self.distribution = distribution
         
         self.transform = transforms.Compose([
@@ -33,6 +36,9 @@ class DataLoaderManager:
             self.IID()
         else:
             self.NonIID()
+
+        if self.num_malicious > 0:
+            self.apply_attacks()
 
     def IID(self):
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
@@ -62,25 +68,18 @@ class DataLoaderManager:
         self.client_datasets = [[] for _ in range(self.num_clients)]
 
         for i in range(self.num_clients):
-            # Random number of samples for each client
             num_samples = random.randint(total_samples // (self.num_clients * 2), total_samples // self.num_clients)
             selected_classes = np.random.choice(classes, size=random.randint(1, len(classes)), replace=False)
             
             for cls in selected_classes:
-                # Get the indices of the current class
                 class_indices = indices[targets[indices] == cls]
-                # Random number of samples for this class
                 num_class_samples = random.randint(1, num_samples // len(selected_classes))
-                # Choose a subset of indices from the current class
                 chosen_indices = np.random.choice(class_indices, size=min(num_class_samples, len(class_indices)), replace=False)
-                # Add the chosen indices to the client's dataset
                 self.client_datasets[i].extend(chosen_indices.tolist())
-                # Update class count for this client
                 self.class_counts[i, cls] += len(chosen_indices)
 
         self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
         self.DistributionMatrix()
-
 
     def CountClasses(self, indices, client_id=None, is_root=False):
         targets = torch.tensor([self.train_set.targets[i] for i in indices])
@@ -97,6 +96,21 @@ class DataLoaderManager:
         print("Root dataset distribution matrix (root x classes):")
         print(self.root_class_counts)
 
+    def apply_attacks(self):
+        # Label flipping attack: set all labels to 9
+        if self.attack_type == 'label_flipping':
+            print(f"Applying label flipping attack to {self.num_malicious} clients.")
+            for i in range(self.num_malicious):
+                for idx in self.client_datasets[i].indices:
+                    self.train_set.targets[idx] = 9  # Change the label to class 9
+
+        # Gaussian attack: add noise to data
+        elif self.attack_type == 'gaussian':
+            print(f"Applying Gaussian noise attack (stddev: {self.noise_stddev}) to {self.num_malicious} clients.")
+            for i in range(self.num_malicious):
+                for idx in self.client_datasets[i].indices:
+                    self.train_set.data[idx] = np.clip(self.train_set.data[idx] + np.random.normal(0, self.noise_stddev, self.train_set.data[idx].shape), 0, 255)
+
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
 
@@ -105,8 +119,6 @@ class DataLoaderManager:
 
     def get_client_loaders(self):
         return [DataLoader(client_dataset, batch_size=self.batch_size, shuffle=True) for client_dataset in self.client_datasets]
-
-
 
 
 
