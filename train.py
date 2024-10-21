@@ -19,7 +19,7 @@ parser.add_argument('--num_rounds', type=int, default=15, help='Number of traini
 parser.add_argument('--num_malicious', type=int, default=10, help='Number of malicious clients')
 parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs for each client')
 parser.add_argument('--FLTrust', action='store_true', help='Use FLTrust or not')
-parser.add_argument('--attack_type', type=str, default='gaussian_noise', help='Type of attack to apply to malicious clients')
+parser.add_argument('--attack_type', type=str, default='gaussian', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for clients')
