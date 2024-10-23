@@ -8,6 +8,7 @@ import torch.nn as nn
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 class Client:
     def __init__(self, client_loader, num_epochs=5, lr=0.001):
         self.model = ResNetCIFAR().to(device)
@@ -17,7 +18,7 @@ class Client:
         self.num_epochs = num_epochs
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)  # Reduce LR over time
 
-    def train(self):
+    def train(self, fedprox=False, mu=0.0, global_weights=None):
         self.model.train()
         for epoch in range(self.num_epochs):
             running_loss = 0.0
@@ -28,6 +29,14 @@ class Client:
                 self.optimizer.zero_grad()
                 output = self.model(data)
                 loss = self.criterion(output, target)
+
+                # Apply FedProx proximal term if enabled
+                if fedprox and global_weights is not None:
+                    proximal_term = 0.0
+                    for param, global_param in zip(self.model.parameters(), global_weights.values()):
+                        proximal_term += ((param - global_param.to(device)) ** 2).sum()
+                    loss += (mu / 2) * proximal_term
+
                 loss.backward()
                 self.optimizer.step()
 
@@ -37,8 +46,6 @@ class Client:
                 total += target.size(0)
 
             self.scheduler.step()  # Adjust learning rate
-
-            # print(f'Epoch {epoch + 1} Loss: {running_loss / len(self.train_loader):.4f}, Accuracy: {100 * correct / total:.2f}%')
 
     def evaluate(self, test_loader):
         self.model.eval()

@@ -23,7 +23,7 @@ parser.add_argument('--attack_type', type=str, default='gaussian', help='Type of
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for clients')
-parser.add_argument('--distribution', type=str, default='iid', help='Data distribution among clients')
+parser.add_argument('--distribution', type=str, default='non_iid', help='Data distribution among clients')
 args = parser.parse_args()
 
 # Initialize model and criterion

@@ -9,11 +9,12 @@ from tqdm import tqdm
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Server:
-    def __init__(self, model, criterion, num_clients, alpha=1, print_metrics=False):
+    def __init__(self, model, criterion, num_clients, alpha=1, mu=0.0, print_metrics=False):
         self.model = model.to(device)
         self.criterion = criterion
         self.num_clients = num_clients
         self.alpha = alpha  # Trust-weighting factor for FLTrust
+        self.mu = mu  # Proximal term weight for FedProx
         self.print_metrics = print_metrics
 
     def cosine(self, w1, w2):
@@ -70,7 +71,7 @@ class Server:
 
         self.model.load_state_dict(self.model.state_dict())
 
-    def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None):
+    def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, fedprox=False):
         accuracies = []
         root_client_accuracies = []
 
@@ -85,7 +86,7 @@ class Server:
             client_accuracies = []
             for client in clients:
                 client.update_model_weights(self.model.state_dict())
-                client.train()
+                client.train(fedprox=fedprox, mu=self.mu)
                 client_models.append(client.get_model_weights())
 
                 if self.print_metrics:
