@@ -173,10 +173,13 @@ class DataLoaderManager:
             self.class_counts[client_id] = class_distribution
 
     def DistributionMatrix(self):
-        print("Clients' distribution matrix (clients x classes):")
-        print(self.class_counts)
-        print("Root dataset distribution matrix (root x classes):")
-        print(self.root_class_counts)
+        # Print the number of samples per client
+        print("Number of samples per client:")
+        for i, client_dataset in enumerate(self.client_datasets):
+            print(f"Client {i + 1}: {len(client_dataset)} samples")
+
+        # Print the number of samples in the root dataset
+        print(f"Root dataset: {len(self.root_dataset)} samples")
 
     def apply_attacks(self):
         # Label flipping attack: set all labels in the mask to 1
