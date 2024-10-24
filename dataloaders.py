@@ -12,6 +12,9 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from PIL import Image
 import torchvision.transforms as transforms
+from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
+
 import numpy as np
 
 class DriveDataset(Dataset):
