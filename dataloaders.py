@@ -26,10 +26,15 @@ import numpy as np
 from PIL import Image
 
 class DriveDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None):
+    def __init__(self, image_dir, mask_dir, transform=None, malicious_clients=None, client_id=None, attack_type=None, noise_stddev=256):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
+        self.malicious_clients = malicious_clients  # List of malicious clients
+        self.client_id = client_id  # ID of this client (to know if it is malicious)
+        self.attack_type = attack_type  # Type of attack (e.g., gaussian)
+        self.noise_stddev = noise_stddev  # Standard deviation of noise
+
         self.image_list = os.listdir(self.image_dir)
 
     def __len__(self):
@@ -48,10 +53,14 @@ class DriveDataset(Dataset):
             image = self.transform(image)
             mask = self.transform(mask)
 
+        # Apply Gaussian noise attack if this client is malicious
+        if self.client_id in self.malicious_clients and self.attack_type == 'gaussian':
+            noise = torch.randn(image.size()) * self.noise_stddev / 255.0
+            image = torch.clamp(image + noise, 0, 1)
+
         mask = (mask > 0).float()  # Binarize the mask
 
         return image, mask
-
 class DataLoaderManager:
     def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
@@ -88,6 +97,8 @@ class DataLoaderManager:
         self.class_counts = torch.zeros(self.num_clients, 2)  # For segmentation (binary masks: 2 classes)
         self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
 
+        self.malicious_clients = list(range(self.num_malicious))  # First 'num_malicious' clients are malicious
+
         self.CountClasses(self.root_indices, is_root=True)
 
         # Apply IID/Non-IID distribution
@@ -96,16 +107,11 @@ class DataLoaderManager:
         else:
             self.NonIID()
 
-        # Apply attack if malicious clients exist
-        if self.num_malicious > 0:
-            self.apply_attacks()
-
     def IID(self):
         # Distribute the remaining dataset equally across clients
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
         self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
         
-        # Ensure each client gets data, allow same data to be assigned to multiple clients if needed
         client_size = max(1, len(self.remaining_dataset) // self.num_clients)
         self.client_datasets = []
 
@@ -117,7 +123,17 @@ class DataLoaderManager:
             else:
                 # Repeat indices if necessary to avoid empty datasets for clients
                 client_indices = range(0, client_size)
-            self.client_datasets.append(Subset(self.remaining_dataset, client_indices))
+            
+            client_dataset = DriveDataset(
+                image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/images',
+                mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/1st_manual',
+                transform=self.transform,
+                malicious_clients=self.malicious_clients,
+                client_id=i,
+                attack_type=self.attack_type,
+                noise_stddev=self.noise_stddev
+            )
+            self.client_datasets.append(client_dataset)
             self.CountClasses(client_indices, i)
 
         self.DistributionMatrix()
