@@ -30,8 +30,8 @@ class DriveDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
-        self.malicious_clients = malicious_clients  # List of malicious clients
-        self.client_id = client_id  # ID of this client (to know if it is malicious)
+        self.malicious_clients = malicious_clients  # List of malicious clients (None for root/test datasets)
+        self.client_id = client_id  # ID of this client (None for root/test datasets)
         self.attack_type = attack_type  # Type of attack (e.g., gaussian)
         self.noise_stddev = noise_stddev  # Standard deviation of noise
 
@@ -53,14 +53,16 @@ class DriveDataset(Dataset):
             image = self.transform(image)
             mask = self.transform(mask)
 
-        # Apply Gaussian noise attack if this client is malicious
-        if self.client_id in self.malicious_clients and self.attack_type == 'gaussian':
+        # Apply Gaussian noise attack if this client is malicious (only for client datasets)
+        if self.client_id is not None and self.client_id in self.malicious_clients and self.attack_type == 'gaussian':
             noise = torch.randn(image.size()) * self.noise_stddev / 255.0
             image = torch.clamp(image + noise, 0, 1)
 
         mask = (mask > 0).float()  # Binarize the mask
 
         return image, mask
+
+
 class DataLoaderManager:
     def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
@@ -89,7 +91,7 @@ class DataLoaderManager:
             transform=self.transform
         )
 
-        # Select root dataset size and indices
+        # Select root dataset size and indices (client_id is None for root dataset)
         self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
         self.root_dataset = Subset(self.train_set, self.root_indices)
@@ -123,7 +125,8 @@ class DataLoaderManager:
             else:
                 # Repeat indices if necessary to avoid empty datasets for clients
                 client_indices = range(0, client_size)
-            
+
+            # Pass client_id and malicious_clients only for client datasets
             client_dataset = DriveDataset(
                 image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/images',
                 mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/1st_manual',
