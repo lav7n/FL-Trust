@@ -5,17 +5,13 @@ import os
 import torchvision
 from torchvision import transforms
 import random
-
 import os
 import random
 import torch
 from torch.utils.data import DataLoader, Subset
-from PIL import Image
 import torchvision.transforms as transforms
-from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
-
 import numpy as np
+from PIL import Image
 
 class DriveDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
@@ -73,7 +69,7 @@ class DataLoaderManager:
         )
 
         # Select root dataset size and indices
-        self.root_size = int(len(self.train_set) * root_dataset_fraction)
+        self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
         self.root_dataset = Subset(self.train_set, self.root_indices)
 
@@ -93,15 +89,22 @@ class DataLoaderManager:
             self.apply_attacks()
 
     def IID(self):
+        # Distribute the remaining dataset equally across clients
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
         self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
-        client_size = len(self.remaining_dataset) // self.num_clients
+        
+        # Ensure each client gets data, allow same data to be assigned to multiple clients if needed
+        client_size = max(1, len(self.remaining_dataset) // self.num_clients)
         self.client_datasets = []
 
         for i in range(self.num_clients):
             start_idx = i * client_size
             end_idx = start_idx + client_size
-            client_indices = range(start_idx, end_idx)
+            if start_idx < len(self.remaining_dataset):
+                client_indices = range(start_idx, min(end_idx, len(self.remaining_dataset)))
+            else:
+                # Repeat indices if necessary to avoid empty datasets for clients
+                client_indices = range(0, client_size)
             self.client_datasets.append(Subset(self.remaining_dataset, client_indices))
             self.CountClasses(client_indices, i)
 
@@ -117,7 +120,7 @@ class DataLoaderManager:
         self.client_datasets = [[] for _ in range(self.num_clients)]
 
         for i in range(self.num_clients):
-            num_samples = random.randint(total_samples // (self.num_clients * 2), total_samples // self.num_clients)
+            num_samples = random.randint(max(1, total_samples // (self.num_clients * 2)), total_samples // self.num_clients)
             selected_samples = np.random.choice(indices, size=num_samples, replace=False)
             self.client_datasets[i] = Subset(self.train_set, selected_samples)
             self.CountClasses(selected_samples, i)
@@ -126,6 +129,10 @@ class DataLoaderManager:
 
     def CountClasses(self, indices, client_id=None, is_root=False):
         # Count class distribution: mask has two values (binary: 0 and 1)
+        # Add safeguard to handle small datasets or empty client datasets
+        if len(indices) == 0:
+            return
+        
         masks = torch.stack([self.train_set[i][1] for i in indices])
         class_distribution = torch.bincount(masks.view(-1).int(), minlength=2).float()
 
@@ -168,7 +175,6 @@ class DataLoaderManager:
 
     def get_client_loaders(self):
         return [DataLoader(client_dataset, batch_size=self.batch_size, shuffle=True) for client_dataset in self.client_datasets]
-
 
 
 def save_matrices(A, B, C, attack_type, num_clients, num_malicious):
