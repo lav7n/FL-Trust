@@ -6,6 +6,41 @@ import torchvision
 from torchvision import transforms
 import random
 
+import os
+import random
+import torch
+from torch.utils.data import DataLoader, Subset
+from PIL import Image
+import torchvision.transforms as transforms
+import numpy as np
+
+class DriveDataset(Dataset):
+    def __init__(self, image_dir, mask_dir, transform=None):
+        self.image_dir = image_dir
+        self.mask_dir = mask_dir
+        self.transform = transform
+        self.image_list = os.listdir(self.image_dir)
+
+    def __len__(self):
+        return len(self.image_list)
+
+    def __getitem__(self, idx):
+        # Load the image and mask
+        img_path = os.path.join(self.image_dir, self.image_list[idx])
+        mask_name = self.image_list[idx].replace('_training.tif', '_manual1.gif')
+        mask_path = os.path.join(self.mask_dir, mask_name)
+
+        image = Image.open(img_path).convert("L")  # Convert to grayscale
+        mask = Image.open(mask_path).convert("L")  # Convert to grayscale
+
+        if self.transform:
+            image = self.transform(image)
+            mask = self.transform(mask)
+
+        mask = (mask > 0).float()  # Binarize the mask
+
+        return image, mask
+
 class DataLoaderManager:
     def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
@@ -14,29 +49,43 @@ class DataLoaderManager:
         self.attack_type = attack_type
         self.noise_stddev = noise_stddev
         self.distribution = distribution
-        
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
-        
-        self.train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=self.transform)
-        self.test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=self.transform)
 
+        # Define image and mask transformations
+        self.transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+        ])
+
+        # Load DRIVE dataset
+        self.train_set = DriveDataset(
+            image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/images',
+            mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/1st_manual',
+            transform=self.transform
+        )
+
+        self.test_set = DriveDataset(
+            image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/test/images',
+            mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/test/1st_manual',
+            transform=self.transform
+        )
+
+        # Select root dataset size and indices
         self.root_size = int(len(self.train_set) * root_dataset_fraction)
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
         self.root_dataset = Subset(self.train_set, self.root_indices)
 
-        self.class_counts = torch.zeros(self.num_clients, 10)  # Clients' class distribution matrix
-        self.root_class_counts = torch.zeros(1, 10)  # Root dataset class distribution matrix
+        self.class_counts = torch.zeros(self.num_clients, 2)  # For segmentation (binary masks: 2 classes)
+        self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
 
         self.CountClasses(self.root_indices, is_root=True)
 
+        # Apply IID/Non-IID distribution
         if self.distribution == 'iid':
             self.IID()
         else:
             self.NonIID()
 
+        # Apply attack if malicious clients exist
         if self.num_malicious > 0:
             self.apply_attacks()
 
@@ -45,14 +94,14 @@ class DataLoaderManager:
         self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
         client_size = len(self.remaining_dataset) // self.num_clients
         self.client_datasets = []
-        
+
         for i in range(self.num_clients):
             start_idx = i * client_size
             end_idx = start_idx + client_size
             client_indices = range(start_idx, end_idx)
             self.client_datasets.append(Subset(self.remaining_dataset, client_indices))
             self.CountClasses(client_indices, i)
-        
+
         self.DistributionMatrix()
 
     def NonIID(self):
@@ -61,30 +110,22 @@ class DataLoaderManager:
         total_samples = len(self.train_set)
         indices = np.arange(total_samples)
         np.random.shuffle(indices)
-        
-        targets = torch.tensor(self.train_set.targets)
-        classes = np.arange(10)  # CIFAR-10 has 10 classes
 
         self.client_datasets = [[] for _ in range(self.num_clients)]
 
         for i in range(self.num_clients):
             num_samples = random.randint(total_samples // (self.num_clients * 2), total_samples // self.num_clients)
-            selected_classes = np.random.choice(classes, size=random.randint(1, len(classes)), replace=False)
-            
-            for cls in selected_classes:
-                class_indices = indices[targets[indices] == cls]
-                num_class_samples = random.randint(1, num_samples // len(selected_classes))
-                chosen_indices = np.random.choice(class_indices, size=min(num_class_samples, len(class_indices)), replace=False)
-                self.client_datasets[i].extend(chosen_indices.tolist())
-                self.class_counts[i, cls] += len(chosen_indices)
+            selected_samples = np.random.choice(indices, size=num_samples, replace=False)
+            self.client_datasets[i] = Subset(self.train_set, selected_samples)
+            self.CountClasses(selected_samples, i)
 
-        self.client_datasets = [Subset(self.train_set, indices) for indices in self.client_datasets]
         self.DistributionMatrix()
 
     def CountClasses(self, indices, client_id=None, is_root=False):
-        targets = torch.tensor([self.train_set.targets[i] for i in indices])
-        class_distribution = torch.bincount(targets, minlength=10).int()
-        
+        # Count class distribution: mask has two values (binary: 0 and 1)
+        masks = torch.stack([self.train_set[i][1] for i in indices])
+        class_distribution = torch.bincount(masks.view(-1).int(), minlength=2).float()
+
         if is_root:
             self.root_class_counts[0] = class_distribution
         else:
@@ -97,19 +138,24 @@ class DataLoaderManager:
         print(self.root_class_counts)
 
     def apply_attacks(self):
-        # Label flipping attack: set all labels to 9
+        # Label flipping attack: set all labels in the mask to 1
         if self.attack_type == 'label_flipping':
             print(f"Applying label flipping attack to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
                 for idx in self.client_datasets[i].indices:
-                    self.train_set.targets[idx] = 9  # Change the label to class 9
+                    image, mask = self.train_set[idx]
+                    mask.fill_(1)  # Set all mask values to 1 (label flipping)
+                    self.train_set[idx] = (image, mask)
 
-        # Gaussian attack: add noise to data
+        # Gaussian attack: add noise to images
         elif self.attack_type == 'gaussian':
             print(f"Applying Gaussian noise attack (stddev: {self.noise_stddev}) to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
                 for idx in self.client_datasets[i].indices:
-                    self.train_set.data[idx] = np.clip(self.train_set.data[idx] + np.random.normal(0, self.noise_stddev, self.train_set.data[idx].shape), 0, 255)
+                    image, mask = self.train_set[idx]
+                    noise = torch.randn(image.size()) * self.noise_stddev / 255.0
+                    noisy_image = torch.clamp(image + noise, 0, 1)
+                    self.train_set[idx] = (noisy_image, mask)
 
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
