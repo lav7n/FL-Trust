@@ -72,8 +72,8 @@ class Server:
         self.model.load_state_dict(self.model.state_dict())
 
     def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, fedprox=False):
-        accuracies = []
-        root_client_accuracies = []
+        iou_scores = []
+        root_client_iou_scores = []
 
         for rnd in tqdm(range(num_rounds)):
             tqdm.write(f"\n--- Round {rnd + 1}/{num_rounds} ---")
@@ -83,32 +83,31 @@ class Server:
                 root_client.train()
 
             client_models = []
-            client_accuracies = []
             for client in clients:
                 client.update_model_weights(self.model.state_dict())
                 client.train(fedprox=fedprox, mu=self.mu)
                 client_models.append(client.get_model_weights())
 
                 if self.print_metrics:
-                    client_accuracy = self.test_client_locally(client, test_loader)
-                    print(f"Client {client} Accuracy on Test: {client_accuracy:.2f}%")
-                    client_accuracies.append(client_accuracy)
+                    client_iou = self.test_client_locally(client, test_loader)
+                    print(f"Client IoU on Test: {client_iou:.2f}")
+                    client_iou_scores.append(client_iou)
 
             if FLTrust and root_client:
                 self.FLTrust(root_client, client_models)
             else:
                 self.FedAvg(client_models)
 
-            global_accuracy = self.test_global(test_loader)
-            accuracies.append(global_accuracy)
-            tqdm.write(f"Global Model Accuracy after Round {rnd + 1}: {global_accuracy:.2f}%")
+            global_iou = self.test_global(test_loader)
+            iou_scores.append(global_iou)
+            tqdm.write(f"Global Model IoU after Round {rnd + 1}: {global_iou:.2f}")
 
             if FLTrust and root_client:
-                root_client_accuracy = self.test_client_locally(root_client, test_loader)
-                root_client_accuracies.append(root_client_accuracy)
-                tqdm.write(f"Root Client Accuracy after Round {rnd + 1}: {root_client_accuracy:.2f}%")
+                root_client_iou = self.test_client_locally(root_client, test_loader)
+                root_client_iou_scores.append(root_client_iou)
+                tqdm.write(f"Root Client IoU after Round {rnd + 1}: {root_client_iou:.2f}")
 
-        return accuracies, root_client_accuracies
+        return iou_scores, root_client_iou_scores
 
     def FedAvg(self, client_models):
         avg_weights = client_models[0]
@@ -118,23 +117,46 @@ class Server:
 
     def test_global(self, data_loader):
         self.model.eval()
-        correct = 0
+        iou_score = 0
+        total = 0
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
-                output = self.model(data)
-                pred = output.argmax(dim=1, keepdim=True)
-                correct += pred.eq(target.view_as(pred)).sum().item()
-        return 100. * correct / len(data_loader.dataset)
+                outputs = self.model(data)
+                
+                # For segmentation tasks, use sigmoid and threshold
+                preds = torch.sigmoid(outputs)
+                preds = (preds > 0.5).float()
+
+                # Compute Intersection over Union (IoU)
+                intersection = (preds * target).sum((1, 2, 3))
+                union = (preds + target).sum((1, 2, 3)) - intersection
+                iou = (intersection + 1e-6) / (union + 1e-6)  # Add small epsilon to avoid division by zero
+
+                iou_score += iou.mean().item()
+                total += 1
+
+        return iou_score / total  # Average IoU across the dataset
 
     def test_client_locally(self, client, data_loader):
         client.model.eval()
-        correct = 0
+        iou_score = 0
+        total = 0
         with torch.no_grad():
             for data, target in data_loader:
                 data, target = data.to(device), target.to(device)
-                output = client.model(data)
-                pred = output.argmax(dim=1, keepdim=True)
-                correct += pred.eq(target.view_as(pred)).sum().item()
-        return 100. * correct / len(data_loader.dataset)
+                outputs = client.model(data)
+                
+                # For segmentation tasks, use sigmoid and threshold
+                preds = torch.sigmoid(outputs)
+                preds = (preds > 0.5).float()
 
+                # Compute IoU for client model
+                intersection = (preds * target).sum((1, 2, 3))
+                union = (preds + target).sum((1, 2, 3)) - intersection
+                iou = (intersection + 1e-6) / (union + 1e-6)
+
+                iou_score += iou.mean().item()
+                total += 1
+
+        return iou_score / total  # Average IoU for this client
