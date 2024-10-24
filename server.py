@@ -73,6 +73,7 @@ class Server:
 
     def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, fedprox=False):
         iou_scores = []
+        client_iou_scores = []
         root_client_iou_scores = []
 
         for rnd in tqdm(range(num_rounds)):
