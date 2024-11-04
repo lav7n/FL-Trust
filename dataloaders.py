@@ -7,25 +7,15 @@ from torchvision import transforms
 import random
 
 import os
-import random
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader, Subset
+import torchvision.transforms as transforms
 from PIL import Image
-import torchvision.transforms as transforms
-from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
-
+import random
 import numpy as np
 
-import os
-import random
-import torch
-from torch.utils.data import DataLoader, Subset
-import torchvision.transforms as transforms
-import numpy as np
-from PIL import Image
-
-class DriveDataset(Dataset):
+# Updated dataset class for 2D BraTS
+class Brats2DDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None, malicious_clients=None, client_id=None, attack_type=None, noise_stddev=256):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
@@ -35,7 +25,7 @@ class DriveDataset(Dataset):
         self.attack_type = attack_type  # Type of attack (e.g., gaussian)
         self.noise_stddev = noise_stddev  # Standard deviation of noise
 
-        self.image_list = os.listdir(self.image_dir)
+        self.image_list = sorted(os.listdir(self.image_dir))
 
     def __len__(self):
         return len(self.image_list)
@@ -43,8 +33,7 @@ class DriveDataset(Dataset):
     def __getitem__(self, idx):
         # Load the image and mask
         img_path = os.path.join(self.image_dir, self.image_list[idx])
-        mask_name = self.image_list[idx].replace('_training.tif', '_manual1.gif')
-        mask_path = os.path.join(self.mask_dir, mask_name)
+        mask_path = os.path.join(self.mask_dir, self.image_list[idx])
 
         image = Image.open(img_path).convert("L")  # Convert to grayscale
         mask = Image.open(mask_path).convert("L")  # Convert to grayscale
@@ -62,9 +51,8 @@ class DriveDataset(Dataset):
 
         return image, mask
 
-
 class DataLoaderManager:
-    def __init__(self, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
+    def __init__(self, image_dir, mask_dir, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
         self.num_clients = num_clients
         self.num_malicious = num_malicious
@@ -78,18 +66,9 @@ class DataLoaderManager:
             transforms.ToTensor(),
         ])
 
-        # Load DRIVE dataset
-        self.train_set = DriveDataset(
-            image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/images',
-            mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/1st_manual',
-            transform=self.transform
-        )
-
-        self.test_set = DriveDataset(
-            image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/test/images',
-            mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/test/1st_manual',
-            transform=self.transform
-        )
+        # Load 2D BraTS dataset
+        self.train_set = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
+        self.test_set = Brats2DDataset(image_dir.replace('images', 'test_images'), mask_dir.replace('masks', 'test_masks'), transform=self.transform)
 
         # Select root dataset size and indices (client_id is None for root dataset)
         self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
@@ -127,15 +106,7 @@ class DataLoaderManager:
                 client_indices = range(0, client_size)
 
             # Pass client_id and malicious_clients only for client datasets
-            client_dataset = DriveDataset(
-                image_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/images',
-                mask_dir='/kaggle/input/drive-digital-retinal-images-for-vessel-extraction/DRIVE/training/1st_manual',
-                transform=self.transform,
-                malicious_clients=self.malicious_clients,
-                client_id=i,
-                attack_type=self.attack_type,
-                noise_stddev=self.noise_stddev
-            )
+            client_dataset = Subset(self.train_set, client_indices)
             self.client_datasets.append(client_dataset)
             self.CountClasses(client_indices, i)
 
@@ -182,7 +153,7 @@ class DataLoaderManager:
         print(f"Root dataset: {len(self.root_dataset)} samples")
 
     def apply_attacks(self):
-        # Label flipping attack: set all labels in the mask to 1
+        # Apply label flipping or Gaussian noise attacks as needed
         if self.attack_type == 'label_flipping':
             print(f"Applying label flipping attack to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
@@ -191,7 +162,6 @@ class DataLoaderManager:
                     mask.fill_(1)  # Set all mask values to 1 (label flipping)
                     self.train_set[idx] = (image, mask)
 
-        # Gaussian attack: add noise to images
         elif self.attack_type == 'gaussian':
             print(f"Applying Gaussian noise attack (stddev: {self.noise_stddev}) to {self.num_malicious} clients.")
             for i in range(self.num_malicious):

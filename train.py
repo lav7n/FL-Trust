@@ -26,6 +26,8 @@ parser.add_argument('--noise_stddev', type=float, default=256, help='Standard de
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate for clients')
 parser.add_argument('--distribution', type=str, default='iid', help='Data distribution among clients')
+parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/images', help='Path to the directory containing images')
+parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks', help='Path to the directory containing segmentation masks')
 args = parser.parse_args()
 
 # Initialize model and criterion
@@ -40,7 +42,9 @@ criterion = nn.BCEWithLogitsLoss()
 
 # Initialize data loaders with potential attacks on malicious clients
 data_loader_manager = DataLoaderManager(
-    batch_size=4,  # Adjust batch size for segmentation task (may require lower value due to image size)
+    image_dir=args.img_dir,         # Use img_dir argument
+    mask_dir=args.seg_dir,          # Use seg_dir argument
+    batch_size=4,                   # Adjust batch size for segmentation task
     num_clients=args.num_clients, 
     root_dataset_fraction=0.1, 
     distribution=args.distribution,
@@ -50,7 +54,6 @@ data_loader_manager = DataLoaderManager(
 )
 
 # Get test loader and client loaders
-# test_loader = data_loader_manager.get_test_loader()
 client_loaders = data_loader_manager.get_client_loaders()
 
 # Learning rates for clients, modified for malicious clients if required
@@ -79,7 +82,7 @@ print("FedProx: ", args.fedprox)
 if args.FLTrust:
     print("FLTrust Enabled!")
     accuracies, root_client_accuracies = server.train(
-        clients, data_loader_manager.get_root_loader(), #test_loader,
+        clients, data_loader_manager.get_root_loader(),
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=True,
@@ -89,7 +92,7 @@ if args.FLTrust:
 else:
     print("FedAvg Enabled!")
     accuracies = server.train(
-        clients,data_loader_manager.get_root_loader(), # test_loader,
+        clients, data_loader_manager.get_root_loader(),
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=False,
