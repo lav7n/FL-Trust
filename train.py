@@ -83,8 +83,7 @@ print("FedProx: ", args.fedprox)
 if args.FLTrust:
     print("FLTrust Enabled!")
     accuracies, root_client_accuracies = server.train(
-        clients, data_loader_manager.get_root_loader(),
-        test_loader=test_loader,
+        clients, test_loader,  # Pass test_loader as the second positional argument
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=True,
@@ -94,8 +93,7 @@ if args.FLTrust:
 else:
     print("FedAvg Enabled!")
     accuracies = server.train(
-        clients, data_loader_manager.get_root_loader(),
-        test_loader=test_loader,
+        clients, test_loader,  # Pass test_loader as the second positional argument
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=False,
@@ -103,6 +101,7 @@ else:
         fedprox=args.fedprox
     )
     root_client_accuracies = None
+
 
 print("Global Model Accuracies across rounds:", accuracies)
 
