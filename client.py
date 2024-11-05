@@ -12,11 +12,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class Client:
     def __init__(self, client_loader, num_epochs=5, lr=0.001, in_channels=1, num_classes=1):
         # Initialize the U-Net model from segmentation_models_pytorch (smp)
-        self.model = smp.Unet(
-            encoder_name="resnet34",        # Use ResNet-34 as the encoder
-            encoder_weights="imagenet",     # Pretrained on ImageNet
-            in_channels=in_channels,        # Number of input channels (1 for grayscale images)
-            classes=num_classes             # Number of output classes (1 for binary segmentation)
+        model = smp.Unet(
+            encoder_name="mobilenet_v2",     # Use EfficientNet-B0 as the encoder
+            encoder_weights="imagenet",         # Pretrained on ImageNet
+            in_channels=1,                      # Grayscale images
+            classes=1                           # Binary segmentation
         ).to(device)
 
         # Loss function for binary segmentation (you can switch to DiceLoss if needed)
