@@ -32,7 +32,7 @@ args = parser.parse_args()
 
 # Initialize model and criterion
 model = smp.Unet(
-    encoder_name="resnet34",        # Encoder: you can change this to other backbones
+    encoder_name="mobilenet_v2",        # Encoder: you can change this to other backbones
     encoder_weights="imagenet",     # Pretrained on ImageNet
     in_channels=1,                  # Grayscale images for retinal segmentation
     classes=1                       # Binary segmentation (vessel vs background)
