@@ -30,13 +30,39 @@ parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/images
 parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks', help='Path to the directory containing segmentation masks')
 args = parser.parse_args()
 
-# Initialize model and criterion
+import torch
+import segmentation_models_pytorch as smp
+
+# Initialize model with MobileNetV2 as the encoder
 model = smp.Unet(
-    encoder_name="mobilenet_v2",        # Encoder: you can change this to other backbones
-    encoder_weights="imagenet",     # Pretrained on ImageNet
-    in_channels=1,                  # Grayscale images for retinal segmentation
-    classes=1                       # Binary segmentation (vessel vs background)
+    encoder_name="mobilenet_v2",        # Use MobileNetV2 as the encoder
+    encoder_weights="imagenet",         # Pretrained on ImageNet
+    in_channels=1,                      # Grayscale images for segmentation
+    classes=1                           # Binary segmentation (vessel vs background)
 ).to(device)
+
+# Modify the first convolutional layer to accept 1 channel
+# Get the original first conv layer
+original_conv = model.encoder.conv_stem
+
+# Create a new convolutional layer with 1 input channel
+new_conv = torch.nn.Conv2d(
+    in_channels=1,                     # Change to 1 input channel
+    out_channels=original_conv.out_channels,
+    kernel_size=original_conv.kernel_size,
+    stride=original_conv.stride,
+    padding=original_conv.padding,
+    bias=original_conv.bias is not None
+)
+
+# Copy the weights from the original conv layer and adapt them for 1 channel
+with torch.no_grad():
+    new_conv.weight = torch.nn.Parameter(
+        original_conv.weight.mean(dim=1, keepdim=True)
+    )
+
+# Replace the original conv layer with the new one
+model.encoder.conv_stem = new_conv
 
 criterion = nn.BCEWithLogitsLoss()
 
