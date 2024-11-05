@@ -31,7 +31,7 @@ parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks'
 args = parser.parse_args()
 
 model = smp.Unet(
-    encoder_name="efficientnet-b0", # Use EfficientNet-B0 as the encoder
+    encoder_name="resnet-18", # Use EfficientNet-B0 as the encoder
     encoder_weights="imagenet",     # Pretrained on ImageNet
     in_channels=1,                  # Specify 1 input channel for grayscale images
     classes=1                       # Binary segmentation
