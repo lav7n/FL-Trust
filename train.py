@@ -69,6 +69,20 @@ print(f"Number of clients created: {len(clients)}")
 print(f"Total number of clients: {len(client_loaders)}")
 print(f"Number of malicious clients: {args.num_malicious}")
 
+
+# Check input shapes from client loaders
+for i, train_loader in enumerate(client_loaders):
+    print(f"\nClient {i+1}: Checking input shapes from the data loader...")
+    for images, masks in train_loader:
+        print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
+        break  # Check the shape of the first batch and break
+
+# Check input shapes from the test loader
+print("\nChecking input shapes from the test loader...")
+for images, masks in test_loader:
+    print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
+    break  # Check the shape of the first batch and break
+
 # Root client setup for FLTrust
 root_client = Client(client_loader=data_loader_manager.get_root_loader(), num_epochs=args.num_epochs, lr=default_lr)
 
