@@ -41,9 +41,8 @@ model = smp.Unet(
     classes=1                           # Binary segmentation (vessel vs background)
 ).to(device)
 
-# Modify the first convolutional layer to accept 1 channel
-# Get the original first conv layer
-original_conv = model.encoder.conv_stem
+# Access the first convolutional layer in MobileNetV2 encoder
+original_conv = model.encoder.features[0][0]  # First conv layer in the encoder
 
 # Create a new convolutional layer with 1 input channel
 new_conv = torch.nn.Conv2d(
@@ -62,8 +61,7 @@ with torch.no_grad():
     )
 
 # Replace the original conv layer with the new one
-model.encoder.conv_stem = new_conv
-
+model.encoder.features[0][0] = new_conv
 criterion = nn.BCEWithLogitsLoss()
 
 # Initialize data loaders with potential attacks on malicious clients
