@@ -30,38 +30,12 @@ parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/images
 parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks', help='Path to the directory containing segmentation masks')
 args = parser.parse_args()
 
-import torch
-import segmentation_models_pytorch as smp
-
-# Initialize model with MobileNetV2 as the encoder
 model = smp.Unet(
-    encoder_name="mobilenet_v2",        # Use MobileNetV2 as the encoder
-    encoder_weights="imagenet",         # Pretrained on ImageNet
-    in_channels=1,                      # Grayscale images for segmentation
-    classes=1                           # Binary segmentation (vessel vs background)
+    encoder_name="efficientnet-b0", # Use EfficientNet-B0 as the encoder
+    encoder_weights="imagenet",     # Pretrained on ImageNet
+    in_channels=1,                  # Specify 1 input channel for grayscale images
+    classes=1                       # Binary segmentation
 ).to(device)
-
-# Access the first convolutional layer in MobileNetV2 encoder
-original_conv = model.encoder.features[0][0]  # First conv layer in the encoder
-
-# Create a new convolutional layer with 1 input channel
-new_conv = torch.nn.Conv2d(
-    in_channels=1,                     # Change to 1 input channel
-    out_channels=original_conv.out_channels,
-    kernel_size=original_conv.kernel_size,
-    stride=original_conv.stride,
-    padding=original_conv.padding,
-    bias=original_conv.bias is not None
-)
-
-# Copy the weights from the original conv layer and adapt them for 1 channel
-with torch.no_grad():
-    new_conv.weight = torch.nn.Parameter(
-        original_conv.weight.mean(dim=1, keepdim=True)
-    )
-
-# Replace the original conv layer with the new one
-model.encoder.features[0][0] = new_conv
 criterion = nn.BCEWithLogitsLoss()
 
 # Initialize data loaders with potential attacks on malicious clients
