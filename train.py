@@ -55,6 +55,7 @@ data_loader_manager = DataLoaderManager(
 
 # Get test loader and client loaders
 client_loaders = data_loader_manager.get_client_loaders()
+test_loader = data_loader_manager.get_test_loader()
 
 # Learning rates for clients, modified for malicious clients if required
 default_lr = args.lr
@@ -83,6 +84,7 @@ if args.FLTrust:
     print("FLTrust Enabled!")
     accuracies, root_client_accuracies = server.train(
         clients, data_loader_manager.get_root_loader(),
+        test_loader=test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=True,
@@ -93,6 +95,7 @@ else:
     print("FedAvg Enabled!")
     accuracies = server.train(
         clients, data_loader_manager.get_root_loader(),
+        test_loader=test_loader,
         num_rounds=args.num_rounds,
         num_epochs=args.num_epochs,
         FLTrust=False,

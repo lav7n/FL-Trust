@@ -66,14 +66,18 @@ class DataLoaderManager:
             transforms.ToTensor(),
         ])
 
-        # Load 2D BraTS dataset
-        self.train_set = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
-        self.test_set = Brats2DDataset(image_dir.replace('images', 'test_images'), mask_dir.replace('masks', 'test_masks'), transform=self.transform)
+        # Load the entire 2D BraTS dataset
+        full_dataset = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
+
+        # Perform 80-20 train-test split
+        train_size = int(0.8 * len(full_dataset))
+        test_size = len(full_dataset) - train_size
+        self.train_set, self.test_set = random_split(full_dataset, [train_size, test_size])
 
         # Select root dataset size and indices (client_id is None for root dataset)
         self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
-        self.root_dataset = Subset(self.train_set, self.root_indices)
+        self.root_dataset = torch.utils.data.Subset(self.train_set, self.root_indices)
 
         self.class_counts = torch.zeros(self.num_clients, 2)  # For segmentation (binary masks: 2 classes)
         self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
@@ -87,7 +91,7 @@ class DataLoaderManager:
             self.IID()
         else:
             self.NonIID()
-
+            
     def IID(self):
         # Distribute the remaining dataset equally across clients
         self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
