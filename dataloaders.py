@@ -1,18 +1,10 @@
 import torch
-from torch.utils.data import DataLoader, TensorDataset, Subset
+from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 import numpy as np
 import os
 import torchvision
 from torchvision import transforms
 import random
-
-import os
-import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-import torchvision.transforms as transforms
-from PIL import Image
-import random
-import numpy as np
 
 # Updated dataset class for 2D BraTS
 class Brats2DDataset(Dataset):
