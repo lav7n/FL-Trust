@@ -26,8 +26,8 @@ parser.add_argument('--noise_stddev', type=float, default=64, help='Standard dev
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
 parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for clients')
 parser.add_argument('--distribution', type=str, default='non_iid', help='Data distribution among clients')
-parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/images', help='Path to the directory containing images')
-parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks', help='Path to the directory containing segmentation masks')
+parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/Brats2d_Processed_First5000/images', help='Path to the directory containing images')
+parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/Brats2d_Processed_First5000/masks', help='Path to the directory containing segmentation masks')
 args = parser.parse_args()
 
 model = smp.Unet(
