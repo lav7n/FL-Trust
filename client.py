@@ -29,7 +29,7 @@ class Client:
         self.train_loader = client_loader
         self.num_epochs = num_epochs
 
-    def train(self, fedprox=False, mu=0.0, global_weights=None):
+    def train(self, FedProx=False, mu=0.0, global_weights=None):
         self.model.train()
         for epoch in range(self.num_epochs):
             running_loss = 0.0
@@ -41,7 +41,7 @@ class Client:
                 loss = self.criterion(output, target)
 
                 # Apply FedProx proximal term if enabled
-                if fedprox and global_weights is not None:
+                if FedProx and global_weights is not None:
                     proximal_term = 0.0
                     for param, global_param in zip(self.model.parameters(), global_weights.values()):
                         proximal_term += ((param - global_param.to(device)) ** 2).sum()
