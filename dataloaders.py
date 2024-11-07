@@ -1,73 +1,68 @@
-import torch
-from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
+import os
 import numpy as np
-import os
-import torchvision
-from torchvision import transforms
-import random
-
-import os
 import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-import torchvision.transforms as transforms
+from torch.utils.data import Dataset, DataLoader, random_split, Subset
+from torchvision import transforms
 from PIL import Image
 import random
-import numpy as np
 
-# Updated dataset class for 2D BraTS
-class Brats2DDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None, malicious_clients=None, client_id=None, attack_type=None, noise_stddev=256):
-        self.image_dir = image_dir
-        self.mask_dir = mask_dir
+class EBHISegDataset(Dataset):
+    def __init__(self, base_dir, transform=None, cancer_types=("Low-grade IN","Adenocarcinoma", "High-grade IN", "Normal", "Polyp", "Serrated adenoma"), num_images=None):
+        self.base_dir = base_dir
         self.transform = transform
-        self.malicious_clients = malicious_clients  # List of malicious clients (None for root/test datasets)
-        self.client_id = client_id  # ID of this client (None for root/test datasets)
-        self.attack_type = attack_type  # Type of attack (e.g., gaussian)
-        self.noise_stddev = noise_stddev  # Standard deviation of noise
+        self.image_paths = []
+        self.mask_paths = []
 
-        self.image_list = sorted(os.listdir(self.image_dir))
+        for cancer_type in cancer_types:
+            image_dir = os.path.join(base_dir, cancer_type, "image")
+            mask_dir = os.path.join(base_dir, cancer_type, "label")
+
+            for f in os.listdir(image_dir):
+                if f.endswith('.png'):
+                    image_path = os.path.join(image_dir, f)
+                    mask_path = os.path.join(mask_dir, f)
+
+                    if os.path.exists(mask_path):
+                        mask = Image.open(mask_path)
+                        if np.array(mask).sum() > 0:
+                            self.image_paths.append(image_path)
+                            self.mask_paths.append(mask_path)
+
+        self.sampled_pairs = list(zip(self.image_paths, self.mask_paths))
+        
+        if num_images is not None:
+            self.sampled_pairs = self.sampled_pairs[:num_images]
 
     def __len__(self):
-        return len(self.image_list)
+        return len(self.sampled_pairs)
 
     def __getitem__(self, idx):
-        # Load the image and mask
-        img_path = os.path.join(self.image_dir, self.image_list[idx])
-        mask_path = os.path.join(self.mask_dir, self.image_list[idx])
-
-        image = Image.open(img_path).convert("L")  # Convert to grayscale
-        mask = Image.open(mask_path).convert("L")  # Convert to grayscale
+        image_path, mask_path = self.sampled_pairs[idx]
+        image = Image.open(image_path).convert("L")
+        mask = Image.open(mask_path).convert("L")
 
         if self.transform:
             image = self.transform(image)
             mask = self.transform(mask)
 
-        # Apply Gaussian noise attack if this client is malicious (only for client datasets)
-        if self.client_id is not None and self.client_id in self.malicious_clients and self.attack_type == 'gaussian':
-            noise = torch.randn(image.size()) * self.noise_stddev / 255.0
-            image = torch.clamp(image + noise, 0, 1)
-
-        mask = (mask > 0).float()  # Binarize the mask
-
         return image, mask
 
+
 class DataLoaderManager:
-    def __init__(self, image_dir, mask_dir, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
+    def __init__(self, base_dir, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
         self.batch_size = batch_size
         self.num_clients = num_clients
         self.num_malicious = num_malicious
         self.attack_type = attack_type
         self.noise_stddev = noise_stddev
         self.distribution = distribution
-
-        # Define image and mask transformations
         self.transform = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
         ])
 
-        # Load the entire 2D BraTS dataset
-        full_dataset = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
+        # Load the EBHI-SEG dataset
+        full_dataset = EBHISegDataset(base_dir=base_dir, transform=self.transform)
 
         # Perform 80-20 train-test split
         train_size = int(0.8 * len(full_dataset))
@@ -77,7 +72,7 @@ class DataLoaderManager:
         # Select root dataset size and indices (client_id is None for root dataset)
         self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
         self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
-        self.root_dataset = torch.utils.data.Subset(self.train_set, self.root_indices)
+        self.root_dataset = Subset(self.train_set, self.root_indices)
 
         self.class_counts = torch.zeros(self.num_clients, 2)  # For segmentation (binary masks: 2 classes)
         self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
@@ -106,10 +101,8 @@ class DataLoaderManager:
             if start_idx < len(self.remaining_dataset):
                 client_indices = range(start_idx, min(end_idx, len(self.remaining_dataset)))
             else:
-                # Repeat indices if necessary to avoid empty datasets for clients
                 client_indices = range(0, client_size)
 
-            # Pass client_id and malicious_clients only for client datasets
             client_dataset = Subset(self.train_set, client_indices)
             self.client_datasets.append(client_dataset)
             self.CountClasses(client_indices, i)
@@ -134,8 +127,6 @@ class DataLoaderManager:
         self.DistributionMatrix()
 
     def CountClasses(self, indices, client_id=None, is_root=False):
-        # Count class distribution: mask has two values (binary: 0 and 1)
-        # Add safeguard to handle small datasets or empty client datasets
         if len(indices) == 0:
             return
         
@@ -148,22 +139,18 @@ class DataLoaderManager:
             self.class_counts[client_id] = class_distribution
 
     def DistributionMatrix(self):
-        # Print the number of samples per client
         print("Number of samples per client:")
         for i, client_dataset in enumerate(self.client_datasets):
             print(f"Client {i + 1}: {len(client_dataset)} samples")
-
-        # Print the number of samples in the root dataset
         print(f"Root dataset: {len(self.root_dataset)} samples")
 
     def apply_attacks(self):
-        # Apply label flipping or Gaussian noise attacks as needed
         if self.attack_type == 'label_flipping':
             print(f"Applying label flipping attack to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
                 for idx in self.client_datasets[i].indices:
                     image, mask = self.train_set[idx]
-                    mask.fill_(1)  # Set all mask values to 1 (label flipping)
+                    mask.fill_(1)
                     self.train_set[idx] = (image, mask)
 
         elif self.attack_type == 'gaussian':
