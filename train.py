@@ -24,8 +24,8 @@ parser.add_argument('--fedprox', action='store_true', help='Use FedProx or not')
 parser.add_argument('--attack_type', type=str, default='gaussian', help='Type of attack to apply to malicious clients')
 parser.add_argument('--noise_stddev', type=float, default=256, help='Standard deviation of noise for Gaussian noise attack')
 parser.add_argument('--printmetrics', action='store_true', help='Print metrics or not')
-parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate for clients')
-parser.add_argument('--distribution', type=str, default='iid', help='Data distribution among clients')
+parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for clients')
+parser.add_argument('--distribution', type=str, default='non_iid', help='Data distribution among clients')
 parser.add_argument('--img_dir', type=str, default='/kaggle/input/2dbrats/images', help='Path to the directory containing images')
 parser.add_argument('--seg_dir', type=str, default='/kaggle/input/2dbrats/masks', help='Path to the directory containing segmentation masks')
 args = parser.parse_args()
@@ -69,24 +69,7 @@ print(f"Number of clients created: {len(clients)}")
 print(f"Total number of clients: {len(client_loaders)}")
 print(f"Number of malicious clients: {args.num_malicious}")
 
-
-# Check input shapes from client loaders
-for i, train_loader in enumerate(client_loaders):
-    print(f"\nClient {i+1}: Checking input shapes from the data loader...")
-    for images, masks in train_loader:
-        print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
-        break  # Check the shape of the first batch and break
-
-# Check input shapes from the test loader
-print("\nChecking input shapes from the test loader...")
-for images, masks in test_loader:
-    print(f"Images shape: {images.shape}, Masks shape: {masks.shape}")
-    break  # Check the shape of the first batch and break
-
-# Root client setup for FLTrust
 root_client = Client(client_loader=data_loader_manager.get_root_loader(), num_epochs=args.num_epochs, lr=default_lr)
-
-# Server initialization
 server = Server(model=model, criterion=criterion, num_clients=args.num_clients, alpha=1, mu=args.fedprox, print_metrics=args.printmetrics)
 
 # FLTrust vs FedAvg training loop
