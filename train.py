@@ -70,11 +70,11 @@ print(f"Total number of clients: {len(client_loaders)}")
 print(f"Number of malicious clients: {args.num_malicious}")
 
 root_client = Client(client_loader=data_loader_manager.get_root_loader(), num_epochs=args.num_epochs, lr=default_lr)
-server = Server(model=model, criterion=criterion, num_clients=args.num_clients, alpha=1, mu=args.fedprox, print_metrics=args.printmetrics)
+server = Server(model=model, criterion=criterion, num_clients=args.num_clients, alpha=1, print_metrics=args.printmetrics)
 
 # FLTrust vs FedAvg training loop
 print("FLTrust: ", args.FLTrust)
-print("FedProx: ", args.fedprox)
+print("FedProx: ", args.FedProx)
 if args.FLTrust:
     print("FLTrust Enabled!")
     accuracies, root_client_accuracies = server.train(
@@ -83,7 +83,7 @@ if args.FLTrust:
         num_epochs=args.num_epochs,
         FLTrust=True,
         root_client=root_client,
-        fedprox=args.fedprox
+        FedProx=args.FedProx
     )
 else:
     print("FedAvg Enabled!")
@@ -93,7 +93,7 @@ else:
         num_epochs=args.num_epochs,
         FLTrust=False,
         root_client=None,
-        fedprox=args.fedprox
+        FedProx=args.FedProx
     )
     root_client_accuracies = None
 

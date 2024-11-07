@@ -71,7 +71,7 @@ class Server:
 
         self.model.load_state_dict(self.model.state_dict())
 
-    def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, fedprox=False):
+    def train(self, clients, test_loader, num_rounds=5, num_epochs=1, FLTrust=False, root_client=None, FedProx=False):
         iou_scores = []
         client_iou_scores = []
         root_client_iou_scores = []
@@ -86,7 +86,7 @@ class Server:
             client_models = []
             for client in clients:
                 client.update_model_weights(self.model.state_dict())
-                client.train(fedprox=fedprox, mu=self.mu)
+                client.train(FedProx=FedProx, mu=self.mu)
                 client_models.append(client.get_model_weights())
 
                 if self.print_metrics:
