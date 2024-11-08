@@ -164,18 +164,19 @@ class DataLoaderManager:
             print(f"Applying label flipping attack to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
                 for idx in self.client_datasets[i].indices:
-                    image, mask = self.train_set[idx]
+                    image, mask = self.train_set.dataset[idx]  # Access underlying dataset directly
                     mask.fill_(1)  # Set all mask values to 1 (label flipping)
-                    self.train_set[idx] = (image, mask)
+                    self.train_set.dataset[idx] = (image, mask)
 
         elif self.attack_type == 'gaussian':
             print(f"Applying Gaussian noise attack (stddev: {self.noise_stddev}) to {self.num_malicious} clients.")
             for i in range(self.num_malicious):
                 for idx in self.client_datasets[i].indices:
-                    image, mask = self.train_set[idx]
+                    image, mask = self.train_set.dataset[idx]  # Access underlying dataset directly
                     noise = torch.randn(image.size()) * self.noise_stddev / 255.0
                     noisy_image = torch.clamp(image + noise, 0, 1)
-                    self.train_set[idx] = (noisy_image, mask)
+                    self.train_set.dataset[idx] = (noisy_image, mask)
+
 
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
