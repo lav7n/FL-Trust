@@ -30,7 +30,7 @@ class Client:
         self.num_epochs = num_epochs
 
     def train(self, FedProx=False, mu=0.0, global_weights=None):
-        print("Training client... with learning rate", self.optimizer.param_groups[0]['lr'])    
+        # print("Training client... with learning rate", self.optimizer.param_groups[0]['lr'])    
         self.model.train()
         for epoch in range(self.num_epochs):
             running_loss = 0.0
