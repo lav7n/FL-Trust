@@ -59,7 +59,7 @@ class DataLoaderManager:
         self.attack_type = attack_type
         self.noise_stddev = noise_stddev
         self.distribution = distribution
-
+        self.apply_attacks()
         # Define image and mask transformations
         self.transform = transforms.Compose([
             transforms.Resize((256, 256)),
