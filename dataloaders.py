@@ -65,6 +65,7 @@ class DataLoaderManager:
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
         ])
+        print(f"Malicious clients (indices): {self.malicious_clients}")
 
         # Load the entire 2D BraTS dataset
         full_dataset = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
