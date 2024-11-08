@@ -1,60 +1,15 @@
-import torch
-from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
-import numpy as np
 import os
-import torchvision
+import torch
+import random
+import numpy as np
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from torchvision import transforms
-import random
-
-import os
-import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-import torchvision.transforms as transforms
 from PIL import Image
-import random
-import numpy as np
-
-class Brats2DDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None, malicious_clients=None, client_id=None, attack_type=None, noise_stddev=256):
-        self.image_dir = image_dir
-        self.mask_dir = mask_dir
-        self.transform = transform
-        self.malicious_clients = malicious_clients  # List of malicious clients
-        self.client_id = client_id  # ID of this client
-        self.attack_type = attack_type  # Type of attack (e.g., 'gaussian' or 'label_flipping')
-        self.noise_stddev = noise_stddev  # Standard deviation of noise for Gaussian noise attack
-
-        self.image_list = sorted(os.listdir(self.image_dir))
-
-    def __len__(self):
-        return len(self.image_list)
-
-    def __getitem__(self, idx):
-        # Load the image and mask
-        img_path = os.path.join(self.image_dir, self.image_list[idx])
-        mask_path = os.path.join(self.mask_dir, self.image_list[idx])
-
-        image = Image.open(img_path).convert("L")  # Convert to grayscale
-        mask = Image.open(mask_path).convert("L")  # Convert to grayscale
-
-        if self.transform:
-            image = self.transform(image)
-            mask = self.transform(mask)
-
-        mask = (mask > 0).float()  # Binarize the mask
-
-        # Apply attack if this client is malicious
-        if self.client_id is not None and self.client_id in self.malicious_clients:
-            if self.attack_type == 'gaussian':
-                noise = torch.randn(image.size()) * self.noise_stddev / 255.0
-                image = torch.clamp(image + noise, 0, 1)
-            elif self.attack_type == 'label_flipping':
-                mask.fill_(1)  # Set all mask values to 1 (label flipping)
-
-        return image, mask
 
 class DataLoaderManager:
     def __init__(self, image_dir, mask_dir, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
+        self.image_dir = image_dir
+        self.mask_dir = mask_dir
         self.batch_size = batch_size
         self.num_clients = num_clients
         self.num_malicious = num_malicious
@@ -68,58 +23,69 @@ class DataLoaderManager:
             transforms.ToTensor(),
         ])
 
-        # Load the entire 2D BraTS dataset
-        full_dataset = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
+        # Load all file paths
+        self.image_list = sorted(os.listdir(self.image_dir))
 
-        # Perform 80-20 train-test split
-        train_size = int(0.8 * len(full_dataset))
-        test_size = len(full_dataset) - train_size
-        self.train_set, self.test_set = random_split(full_dataset, [train_size, test_size])
+        # Create the full dataset and split into train and test
+        train_size = int(0.8 * len(self.image_list))
+        test_size = len(self.image_list) - train_size
+        self.train_indices, self.test_indices = random_split(range(len(self.image_list)), [train_size, test_size])
 
-        # Select root dataset size and indices (client_id is None for root dataset)
-        self.root_size = max(1, int(len(self.train_set) * root_dataset_fraction))
-        self.root_indices = torch.randperm(len(self.train_set))[:self.root_size]
-        self.root_dataset = torch.utils.data.Subset(self.train_set, self.root_indices)
+        # Root dataset selection
+        self.root_size = max(1, int(len(self.train_indices) * root_dataset_fraction))
+        self.root_indices = torch.randperm(len(self.train_indices))[:self.root_size]
+        self.root_dataset = Subset(self, self.root_indices)
 
-        self.class_counts = torch.zeros(self.num_clients, 2)  # For segmentation (binary masks: 2 classes)
-        self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
-
-        # Identify malicious clients
-        self.malicious_clients = list(range(self.num_malicious))  # First 'num_malicious' clients are malicious
+        # Store malicious clients
+        self.malicious_clients = list(range(self.num_malicious))
         print(f"Malicious clients (indices): {self.malicious_clients}")
-        self.CountClasses(self.root_indices, is_root=True)
-
-        # Apply IID/Non-IID distribution
+        
+        # Set up client datasets based on distribution
         if self.distribution == 'iid':
             self.IID()
         else:
             self.NonIID()
 
+    def __len__(self):
+        return len(self.image_list)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.image_dir, self.image_list[idx])
+        mask_path = os.path.join(self.mask_dir, self.image_list[idx])
+
+        image = Image.open(img_path).convert("L")
+        mask = Image.open(mask_path).convert("L")
+
+        if self.transform:
+            image = self.transform(image)
+            mask = self.transform(mask)
+
+        mask = (mask > 0).float()
+
+        # Apply attacks if client is malicious
+        if hasattr(self, 'client_id') and self.client_id in self.malicious_clients:
+            if self.attack_type == 'gaussian':
+                noise = torch.randn(image.size()) * self.noise_stddev / 255.0
+                image = torch.clamp(image + noise, 0, 1)
+            elif self.attack_type == 'label_flipping':
+                mask.fill_(1)
+
+        return image, mask
+
     def IID(self):
-        # Distribute the remaining dataset equally across clients
-        self.remaining_indices = list(set(range(len(self.train_set))) - set(self.root_indices))
-        self.remaining_dataset = Subset(self.train_set, self.remaining_indices)
-        
-        client_size = max(1, len(self.remaining_dataset) // self.num_clients)
+        remaining_indices = list(set(range(len(self.train_indices))) - set(self.root_indices))
+        client_size = max(1, len(remaining_indices) // self.num_clients)
+
         self.client_datasets = [
-            Brats2DDataset(
-                image_dir=self.remaining_dataset.dataset.image_dir,
-                mask_dir=self.remaining_dataset.dataset.mask_dir,
-                transform=self.transform,
-                malicious_clients=self.malicious_clients,
-                client_id=i,
-                attack_type=self.attack_type,
-                noise_stddev=self.noise_stddev
-            )
+            Subset(self, range(i * client_size, min((i + 1) * client_size, len(remaining_indices))))
             for i in range(self.num_clients)
         ]
-
         self.DistributionMatrix()
 
     def NonIID(self):
         np.random.seed(42)
         random.seed(42)
-        total_samples = len(self.train_set)
+        total_samples = len(self.train_indices)
         indices = np.arange(total_samples)
         np.random.shuffle(indices)
 
@@ -127,49 +93,21 @@ class DataLoaderManager:
         for i in range(self.num_clients):
             num_samples = random.randint(max(1, total_samples // (self.num_clients * 2)), total_samples // self.num_clients)
             selected_samples = np.random.choice(indices, size=num_samples, replace=False)
-            client_dataset = Subset(self.train_set, selected_samples)
-            
-            # Initialize Brats2DDataset for each client
-            self.client_datasets.append(
-                Brats2DDataset(
-                    image_dir=client_dataset.dataset.image_dir,
-                    mask_dir=client_dataset.dataset.mask_dir,
-                    transform=self.transform,
-                    malicious_clients=self.malicious_clients,
-                    client_id=i,
-                    attack_type=self.attack_type,
-                    noise_stddev=self.noise_stddev
-                )
-            )
+            self.client_datasets.append(Subset(self, selected_samples))
         self.DistributionMatrix()
 
-    def CountClasses(self, indices, client_id=None, is_root=False):
-        # Count class distribution: mask has two values (binary: 0 and 1)
-        if len(indices) == 0:
-            return
-        
-        masks = torch.stack([self.train_set[i][1] for i in indices])
-        class_distribution = torch.bincount(masks.view(-1).int(), minlength=2).float()
-
-        if is_root:
-            self.root_class_counts[0] = class_distribution
-        else:
-            self.class_counts[client_id] = class_distribution
-
     def DistributionMatrix(self):
-        # Print the number of samples per client
         print("Number of samples per client:")
         for i, client_dataset in enumerate(self.client_datasets):
             print(f"Client {i + 1}: {len(client_dataset)} samples")
-
-        # Print the number of samples in the root dataset
         print(f"Root dataset: {len(self.root_dataset)} samples")
 
     def get_root_loader(self):
         return DataLoader(self.root_dataset, batch_size=self.batch_size, shuffle=True)
 
     def get_test_loader(self):
-        return DataLoader(self.test_set, batch_size=self.batch_size, shuffle=False)
+        test_dataset = Subset(self, self.test_indices)
+        return DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
 
     def get_client_loaders(self):
         return [DataLoader(client_dataset, batch_size=self.batch_size, shuffle=True) for client_dataset in self.client_datasets]
