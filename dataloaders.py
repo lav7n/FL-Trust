@@ -65,7 +65,7 @@ class DataLoaderManager:
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
         ])
-        print(f"Malicious clients (indices): {self.malicious_clients}")
+        
 
         # Load the entire 2D BraTS dataset
         full_dataset = Brats2DDataset(image_dir, mask_dir, transform=self.transform)
@@ -84,7 +84,7 @@ class DataLoaderManager:
         self.root_class_counts = torch.zeros(1, 2)  # Root dataset class distribution
 
         self.malicious_clients = list(range(self.num_malicious))  # First 'num_malicious' clients are malicious
-
+        print(f"Malicious clients (indices): {self.malicious_clients}")
         self.CountClasses(self.root_indices, is_root=True)
 
         # Apply IID/Non-IID distribution
