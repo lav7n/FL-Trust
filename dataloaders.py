@@ -59,7 +59,6 @@ class DataLoaderManager:
         self.attack_type = attack_type
         self.noise_stddev = noise_stddev
         self.distribution = distribution
-        self.apply_attacks()
         # Define image and mask transformations
         self.transform = transforms.Compose([
             transforms.Resize((256, 256)),
@@ -116,6 +115,7 @@ class DataLoaderManager:
             self.CountClasses(client_indices, i)
 
         self.DistributionMatrix()
+        self.apply_attacks()
 
     def NonIID(self):
         np.random.seed(42)
@@ -133,6 +133,7 @@ class DataLoaderManager:
             self.CountClasses(selected_samples, i)
 
         self.DistributionMatrix()
+        self.apply_attacks()
 
     def CountClasses(self, indices, client_id=None, is_root=False):
         # Count class distribution: mask has two values (binary: 0 and 1)
