@@ -60,7 +60,9 @@ class DataLoaderManager:
             image = self.transform(image)
             mask = self.transform(mask)
 
-        mask = (mask > 0).float()
+        mask = np.array(mask)
+        mask = np.where(mask > 0, 1, 0).astype(np.uint8) 
+        mask = mask.astype(np.float32) # Any values > 0 are set to 1
 
         # Apply attacks if client is malicious
         if hasattr(self, 'client_id') and self.client_id in self.malicious_clients:
