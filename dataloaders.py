@@ -7,7 +7,16 @@ from torchvision import transforms
 from PIL import Image
 
 class DataLoaderManager:
-    def __init__(self, image_dir, mask_dir, batch_size, num_clients, root_dataset_fraction, distribution='iid', num_malicious=0, attack_type=None, noise_stddev=256):
+    def __init__(self, 
+                 image_dir="/kaggle/input/2dbrats/Training/Training/Images", 
+                 mask_dir="/kaggle/input/2dbrats/Training/Training/Masks", 
+                 batch_size=8, 
+                 num_clients=2, 
+                 root_dataset_fraction=0.1, 
+                 distribution='iid', 
+                 num_malicious=1, 
+                 attack_type='label_flipping', 
+                 noise_stddev=256):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.batch_size = batch_size
@@ -36,20 +45,20 @@ class DataLoaderManager:
         self.root_indices = torch.randperm(len(self.train_indices))[:self.root_size]
         self.root_dataset = Subset(self, self.root_indices)
 
-        # Store malicious clients
-        self.malicious_clients = list(range(self.num_malicious))
-        print(f"Malicious clients (indices): {self.malicious_clients}")
-        
         # Set up client datasets based on distribution
         if self.distribution == 'iid':
             self.IID()
         else:
             self.NonIID()
 
+        # Identify malicious clients
+        self.malicious_clients = list(range(self.num_malicious))
+        print(f"Malicious clients (indices): {self.malicious_clients}")
+
     def __len__(self):
         return len(self.image_list)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, client_id=None):
         img_path = os.path.join(self.image_dir, self.image_list[idx])
         mask_path = os.path.join(self.mask_dir, self.image_list[idx])
 
@@ -62,20 +71,27 @@ class DataLoaderManager:
 
         mask = np.array(mask)
         mask = np.where(mask > 0, 1, 0).astype(np.uint8) 
-        mask = mask.astype(np.float32) # Any values > 0 are set to 1
-
-        # Apply attacks if client is malicious
-        if hasattr(self, 'client_id') and self.client_id in self.malicious_clients:
-            if self.attack_type == 'gaussian':
-                noise = torch.randn(mask.size()) * self.noise_stddev / 255.0  # Apply noise to mask
-                mask = torch.clamp(mask + noise, 0, 1)  # Ensure values remain between 0 and 1
-                print(f"Client {self.client_id} - Gaussian noise attack applied")
-            elif self.attack_type == 'label_flipping':
-                mask = 1 - mask  # Invert mask values: 0 becomes 1, 1 becomes 0
-                print(f"Client {self.client_id} - Label flipping attack applied")
+        mask = mask.astype(np.float32)
+        
+        if client_id is not None and client_id in self.malicious_clients:
+            mask = self.apply_attack(mask, client_id)
 
         return image, mask
 
+
+    def apply_attack(self, mask, client_id):
+        # Ensure mask is a torch tensor
+        mask = torch.tensor(mask, dtype=torch.float32) if not isinstance(mask, torch.Tensor) else mask
+        
+        if client_id in self.malicious_clients:
+            if self.attack_type == 'gaussian':
+                noise = torch.randn(mask.shape) * (self.noise_stddev /255)
+                mask = torch.clamp(mask + noise, 0, 1)
+                # print(f"Client {client_id} - Gaussian noise attack applied")
+            elif self.attack_type == 'label_flipping':
+                mask = 1 - mask
+                # print(f"Client {client_id} - Label flipping attack applied")
+        return mask
 
     def IID(self):
         remaining_indices = list(set(range(len(self.train_indices))) - set(self.root_indices))
@@ -115,8 +131,28 @@ class DataLoaderManager:
         return DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
 
     def get_client_loaders(self):
-        return [DataLoader(client_dataset, batch_size=self.batch_size, shuffle=True) for client_dataset in self.client_datasets]
+        loaders = []
+        for i, client_dataset in enumerate(self.client_datasets):
+            # Create a custom dataset wrapper to apply attack based on client_id
+            client_dataset_with_attack = ClientDatasetWrapper(self, client_dataset, i)
+            loaders.append(DataLoader(client_dataset_with_attack, batch_size=self.batch_size, shuffle=True))
+        return loaders
 
+
+class ClientDatasetWrapper(Dataset):
+    def __init__(self, data_manager, subset, client_id):
+        self.data_manager = data_manager
+        self.subset = subset
+        self.client_id = client_id
+
+    def __len__(self):
+        return len(self.subset)
+
+    def __getitem__(self, idx):
+        # Retrieve the global index for the subset index
+        global_idx = self.subset.indices[idx]
+        # Pass the client_id to apply the attack if the client is malicious
+        return self.data_manager.__getitem__(global_idx, self.client_id)
 
 def save_matrices(A, B, C, attack_type, num_clients, num_malicious):
     """
