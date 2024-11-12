@@ -69,8 +69,10 @@ class DataLoaderManager:
             if self.attack_type == 'gaussian':
                 noise = torch.randn(mask.size()) * self.noise_stddev / 255.0  # Apply noise to mask
                 mask = torch.clamp(mask + noise, 0, 1)  # Ensure values remain between 0 and 1
+                print(f"Client {self.client_id} - Gaussian noise attack applied")
             elif self.attack_type == 'label_flipping':
                 mask = 1 - mask  # Invert mask values: 0 becomes 1, 1 becomes 0
+                print(f"Client {self.client_id} - Label flipping attack applied")
 
         return image, mask
 
