@@ -67,12 +67,13 @@ class DataLoaderManager:
         # Apply attacks if client is malicious
         if hasattr(self, 'client_id') and self.client_id in self.malicious_clients:
             if self.attack_type == 'gaussian':
-                noise = torch.randn(image.size()) * self.noise_stddev / 255.0
-                image = torch.clamp(image + noise, 0, 1)
+                noise = torch.randn(mask.size()) * self.noise_stddev / 255.0  # Apply noise to mask
+                mask = torch.clamp(mask + noise, 0, 1)  # Ensure values remain between 0 and 1
             elif self.attack_type == 'label_flipping':
-                mask.fill_(1)
+                mask = 1 - mask  # Invert mask values: 0 becomes 1, 1 becomes 0
 
         return image, mask
+
 
     def IID(self):
         remaining_indices = list(set(range(len(self.train_indices))) - set(self.root_indices))
